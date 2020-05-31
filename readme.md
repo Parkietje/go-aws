@@ -9,7 +9,7 @@ aws management tool
 # config
 
 
-###### UNIX
+#### UNIX
 
 add aws access key in `~/.aws/credentials` using header `[go-aws]`
 
@@ -21,7 +21,7 @@ set environment variables for loading config files:
 
 `$ export AWS_PROFILE=go-aws`
 
-###### Windows
+#### Windows
 
 add aws access key in `%UserProfile%\.aws\credentials` using header `[go-aws]`
 
