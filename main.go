@@ -1,15 +1,34 @@
 package main
 
 import (
-	"go-aws/m/v2/ec2"
+	"fmt"
+	"log"
+	"net/http"
 )
 
 func main() {
-	//get an aws client
-	svc := ec2.GetClient()
+	http.HandleFunc("/", StyleTransfer)
 
-	//describe all instances
-	ec2.DescribeInstances(svc)
+	fmt.Println("starting server on port 8080")
 
-	//ec2.StopInstance(svc, "i-010fd3e08f862fed3")
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		log.Fatal(err)
+	}
+}
+
+/*StyleTransfer is a httphandler which accepts two images and sends them to the job queue*/
+func StyleTransfer(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.Error(w, "404 not found. ", http.StatusNotFound)
+		return
+	}
+
+	switch r.Method {
+	case "POST":
+		fmt.Fprintf(w, "post succesful")
+		//do processing of the POST here
+
+	default:
+		fmt.Fprintf(w, "Please POST your images")
+	}
 }
