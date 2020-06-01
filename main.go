@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/aws/aws-sdk-go/aws/awserr"
-
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
@@ -35,6 +34,9 @@ func main() {
 
 	//start/stop instance with ID
 	//startStopEC2(svc, "STOP", "i-010fd3e08f862fed3")
+
+	//reboot instance with id
+	//rebootEC2(svc, "i-010fd3e08f862fed3")
 
 	// Call to get detailed information on each instance
 	result, err := svc.DescribeInstances(nil)
@@ -103,7 +105,7 @@ func startStopEC2(svc *ec2.EC2, state string, id string) {
 			if err != nil {
 				fmt.Println("Error", err)
 			} else {
-				fmt.Println("Success", result.StartingInstances)
+				fmt.Println("Successfully started", result.StartingInstances)
 			}
 		} else { // This could be due to a lack of permissions
 			fmt.Println("Error", err)
@@ -123,10 +125,38 @@ func startStopEC2(svc *ec2.EC2, state string, id string) {
 			if err != nil {
 				fmt.Println("Error", err)
 			} else {
-				fmt.Println("Success", result.StoppingInstances)
+				fmt.Println("Successfully stopped", result.StoppingInstances)
 			}
 		} else {
 			fmt.Println("Error", err)
 		}
+	}
+}
+
+func rebootEC2(svc *ec2.EC2, id string) {
+	// We set DryRun to true to check to see if the instance exists and we have the
+	// necessary permissions to monitor the instance.
+	input := &ec2.RebootInstancesInput{
+		InstanceIds: []*string{
+			aws.String(id),
+		},
+		DryRun: aws.Bool(true),
+	}
+	result, err := svc.RebootInstances(input)
+	awsErr, ok := err.(awserr.Error)
+
+	// If the error code is `DryRunOperation` it means we have the necessary
+	// permissions to Start this instance
+	if ok && awsErr.Code() == "DryRunOperation" {
+		// Let's now set dry run to be false. This will allow us to reboot the instances
+		input.DryRun = aws.Bool(false)
+		result, err = svc.RebootInstances(input)
+		if err != nil {
+			fmt.Println("Error", err)
+		} else {
+			fmt.Println("Successfully rebooted", result)
+		}
+	} else { // This could be due to a lack of permissions
+		fmt.Println("Error", err)
 	}
 }
