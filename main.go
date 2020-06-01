@@ -1,24 +1,15 @@
 package main
 
 import (
-	"fmt"
 	"go-aws/m/v2/ec2"
-	"log"
 )
 
 func main() {
 	//get an aws client
-	svc, err := ec2.GetClient()
-	if err != nil {
-		log.Fatal(err)
-	}
+	svc := ec2.GetClient()
 
 	//describe all instances
-	result, err := ec2.DescribeInstances(svc)
-	if err != nil {
-		fmt.Println("Error", err)
-	} else {
-		fmt.Println("Success", result)
-	}
+	ec2.DescribeInstances(svc)
 
+	//ec2.StopInstance(svc, "i-010fd3e08f862fed3")
 }
