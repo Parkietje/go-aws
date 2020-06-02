@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
-//GetClient starts a new session and returs an aws client
+/*GetClient starts a new session and returs an aws client*/
 func GetClient() (svc *ec2.EC2) {
 	//aws will look for credentials and config specified by environment variables
 	s, err := session.NewSession(nil)
