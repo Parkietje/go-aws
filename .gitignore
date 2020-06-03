@@ -5,4 +5,5 @@ go-aws
 .DS_Store
 
 #images
+data/*
 *.png
