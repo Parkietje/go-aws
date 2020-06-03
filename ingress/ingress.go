@@ -3,6 +3,12 @@ package ingress
 /*
 INFO:	this module consists of code for receiving 2 images and 2 params via POST, and saving them locally
 USAGE:	first call Setup() and then setup an http handler with StyleTransfer
+
+		ingress.Setup()
+		http.HandleFunc("/", ingress.StyleTransfer)
+		if err := http.ListenAndServe(":8080", nil); err != nil {
+			log.Fatal(err)
+		}
 */
 
 import (
@@ -36,7 +42,7 @@ func StyleTransfer(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
 		if err := r.ParseMultipartForm(maxUploadSize); err != nil {
-			renderError(w, "CANT_PARSE_FORM", http.StatusInternalServerError)
+			renderError(w, "CANT_PARSE_FORM")
 			return
 		}
 		//save files
@@ -46,7 +52,7 @@ func StyleTransfer(w http.ResponseWriter, r *http.Request) {
 		e1 := saveImage(w, r, "content", folder)
 		e2 := saveImage(w, r, "style", folder)
 		if e1 != nil && e2 != nil {
-			renderError(w, "\nFAILED", http.StatusInternalServerError)
+			renderError(w, "\nFAILED")
 		} else {
 			fmt.Fprintf(w, "Files received. Args: size="+r.FormValue("size")+", iterations="+r.FormValue("iterations"))
 		}
@@ -60,7 +66,7 @@ func saveImage(w http.ResponseWriter, r *http.Request, name string, folder strin
 	file, header, err := r.FormFile(name)
 
 	if err != nil {
-		renderError(w, "INVALID_CONTENT_FILE", http.StatusBadRequest)
+		renderError(w, "INVALID_CONTENT_FILE")
 		return err
 	}
 	defer file.Close()
@@ -68,12 +74,12 @@ func saveImage(w http.ResponseWriter, r *http.Request, name string, folder strin
 	fileSize := header.Size
 	fmt.Fprintf(w, "File: %s - size (bytes): %v\n", header.Filename, fileSize)
 	if fileSize > maxUploadSize {
-		renderError(w, "IMAGE_TOO_BIG", http.StatusBadRequest)
+		renderError(w, "IMAGE_TOO_BIG")
 		return err
 	}
 	fileBytes, err := ioutil.ReadAll(file)
 	if err != nil {
-		renderError(w, "INVALID_IMAGE", http.StatusBadRequest)
+		renderError(w, "INVALID_IMAGE")
 		return err
 	}
 	detectedFileType := http.DetectContentType(fileBytes)
@@ -83,13 +89,13 @@ func saveImage(w http.ResponseWriter, r *http.Request, name string, folder strin
 	case "application/pdf":
 		break
 	default:
-		renderError(w, "INVALID_FILE_TYPE", http.StatusBadRequest)
+		renderError(w, "INVALID_FILE_TYPE")
 		return err
 	}
 	fileName := name
 	fileEndings, err := mime.ExtensionsByType(detectedFileType)
 	if err != nil {
-		renderError(w, "CANT_READ_FILE_TYPE", http.StatusInternalServerError)
+		renderError(w, "CANT_READ_FILE_TYPE")
 		return err
 	}
 	workdir, _ := os.Getwd()
@@ -98,12 +104,12 @@ func saveImage(w http.ResponseWriter, r *http.Request, name string, folder strin
 	newFile, err := os.Create(newPath)
 	if err != nil {
 		fmt.Fprintf(w, err.Error())
-		renderError(w, "CANT_CREATE_FILE", http.StatusInternalServerError)
+		renderError(w, "CANT_CREATE_FILE")
 		return err
 	}
 	defer newFile.Close()
 	if _, err := newFile.Write(fileBytes); err != nil || newFile.Close() != nil {
-		renderError(w, "CANT_WRITE_FILE", http.StatusInternalServerError)
+		renderError(w, "CANT_WRITE_FILE")
 		return err
 	}
 	return nil
@@ -117,7 +123,7 @@ func createFolder(path string) error {
 	return nil
 }
 
-func renderError(w http.ResponseWriter, message string, statusCode int) {
+func renderError(w http.ResponseWriter, message string) {
 	w.WriteHeader(http.StatusBadRequest)
 	w.Write([]byte(message))
 }

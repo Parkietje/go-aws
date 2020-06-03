@@ -3,6 +3,8 @@ package ec2
 /*
 INFO:	this module contains logic for managing aws ec2 resources
 USAGE:	first get an aws client, which you can use to interact with aws API
+		svc := ec2.GetClient()
+		ec2.GetInstanceConsoleOutput(svc, "instanceID")
 */
 
 import (
