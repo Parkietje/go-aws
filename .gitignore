@@ -7,3 +7,6 @@ go-aws
 #images
 data/*
 *.png
+
+#secrets
+awskey*

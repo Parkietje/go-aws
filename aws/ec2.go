@@ -1,9 +1,9 @@
-package ec2
+package aws
 
 /*
 INFO:	this module contains logic for managing aws ec2 resources
-USAGE:	first get an aws client, which you can use to interact with aws API
-		svc := ec2.GetClient()
+USAGE:	first get an aws session, then get an EC2 client, which you can use to interact with aws API
+		svc := ec2.GetEC2Client()
 		ec2.GetInstanceConsoleOutput(svc, "instanceID")
 */
 
@@ -18,15 +18,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
-/*GetClient starts a new session and returs an aws client*/
-func GetClient() (svc *ec2.EC2) {
-	//aws will look for credentials and config specified by environment variables
-	s, err := session.NewSession(nil)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
+/*GetEC2Client an aws EC2 client*/
+func GetEC2Client(s *session.Session) (svc *ec2.EC2) {
 	credentials, err := s.Config.Credentials.Get()
 	if err != nil {
 		log.Fatal(err)
@@ -53,6 +46,7 @@ func CreateInstance(svc *ec2.EC2, imageID string, instanceType string) {
 	runResult, err := svc.RunInstances(&ec2.RunInstancesInput{
 		ImageId:      aws.String(imageID),
 		InstanceType: aws.String(instanceType),
+		KeyName:      aws.String("go-aws"),
 		MinCount:     aws.Int64(1),
 		MaxCount:     aws.Int64(1),
 	})
@@ -162,8 +156,9 @@ func RebootInstance(svc *ec2.EC2, id string) {
 	}
 }
 
-/*see: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-cloudwatch.html*/
-func monitorInstance(svc *ec2.EC2, state string, id string) {
+/*MonitorInstance usage: state = "ON" or "OFF"
+see: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-cloudwatch.html*/
+func MonitorInstance(svc *ec2.EC2, state string, id string) {
 	// Turn monitoring on
 	if state == "ON" {
 		// We set DryRun to true to check to see if the instance exists and we have the
