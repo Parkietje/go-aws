@@ -8,6 +8,7 @@ USAGE:	first get an aws session, then get a cloudwatch client, which you can use
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -19,24 +20,26 @@ func GetCloudWatchClient(s *session.Session) *cloudwatch.CloudWatch {
 	return cloudwatch.New(s)
 }
 
-/*ListMetrics lists the chosen metric for a particular instance
-usage: ec2.ListMetrics("CPUUtilization", "AWS/EC2", "i-010cb2e16a05e05c0")*/
-func ListMetrics(svc *cloudwatch.CloudWatch, metric string, namespace string, instanceID string) {
-	// Disable the alarm
-	result, err := svc.ListMetrics(&cloudwatch.ListMetricsInput{
-		MetricName: aws.String(metric),
-		Namespace:  aws.String(namespace),
-		Dimensions: []*cloudwatch.DimensionFilter{
-			&cloudwatch.DimensionFilter{
-				Name:  aws.String("InstanceId"),
-				Value: aws.String(instanceID),
-			},
-		},
-	})
-	if err != nil {
-		fmt.Println("Error", err)
-		return
+/*GetCPUstats returns the 5 min average CPU Utilization for a particular instance*/
+func GetCPUstats(svc *cloudwatch.CloudWatch, instanceID string) {
+	var input cloudwatch.GetMetricStatisticsInput
+	now := time.Now()
+	start := now.Add(time.Duration(-5) * time.Minute) //5 minutes ago
+	input.EndTime = aws.Time(now)
+	input.StartTime = aws.Time(start)
+	input.MetricName = aws.String("CPUUtilization")
+	input.Namespace = aws.String("AWS/EC2")
+	dimension := cloudwatch.Dimension{
+		Name:  aws.String("InstanceId"),
+		Value: aws.String(instanceID),
 	}
+	input.Dimensions = []*cloudwatch.Dimension{&dimension}
+	input.Period = aws.Int64(60) //1 min
+	input.Statistics = []*string{aws.String("Average")}
 
-	fmt.Println("Metrics: ", result.Metrics)
+	result, err := svc.GetMetricStatistics(&input)
+	if err != nil {
+		print(err.Error())
+	}
+	fmt.Println(result.GoString())
 }
