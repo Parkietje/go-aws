@@ -16,7 +16,7 @@ func main() {
 
 	//ec2.DescribeInstances(svc)
 
-	ssh.InitializeWorker(svc, Inst)
+	ssh.InitializeWorker(svc, *Inst.InstanceId)
 
 	ec2_helper.TerminateInstance(svc, *Inst.InstanceId)
 

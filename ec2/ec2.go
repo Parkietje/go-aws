@@ -63,6 +63,21 @@ func CheckInstanceState(svc *ec2.EC2, instanceId string) bool {
 	return machineRunning
 }
 
+func RetrivePublicDns(svc *ec2.EC2, instanceId string) string {
+	input := &ec2.DescribeInstancesInput{
+		InstanceIds: []*string{
+			aws.String(instanceId),
+		},
+	}
+
+	result, err := svc.DescribeInstances(input)
+	if err != nil {
+		fmt.Println("Error", err)
+	}
+
+	return *result.Reservations[0].Instances[0].PublicDnsName
+}
+
 /*CreateInstance acquires a NEW resource (free tier use image "ami-085925f297f89fce1" and instance "t2.micro" )*/
 func CreateInstance(svc *ec2.EC2, imageID string, instanceType string) *ec2.Instance {
 	runResult, err := svc.RunInstances(&ec2.RunInstancesInput{
@@ -77,7 +92,8 @@ func CreateInstance(svc *ec2.EC2, imageID string, instanceType string) *ec2.Inst
 		log.Fatal(err)
 	}
 
-	fmt.Println("Created instance", *runResult.Instances[0].InstanceId)
+	// fmt.Println("Created instance", *runResult.Instances[0].InstanceId)
+	fmt.Println("Successfully created instance")
 
 	// Add tags to the created instance
 	_, errtag := svc.CreateTags(&ec2.CreateTagsInput{

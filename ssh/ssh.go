@@ -12,23 +12,25 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func InitializeWorker(svc *ec2.EC2, instance *ec2.Instance) {
+func InitializeWorker(svc *ec2.EC2, instanceId string) {
 	config := &ssh.ClientConfig{
 		User: "ubuntu",
 		Auth: []ssh.AuthMethod{
-			publicKey("keys/LuppesKey.pem"),
+			publicKey("/keys/LuppesKey.pem"),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
-	for ec2_helper.CheckInstanceState(svc, *instance.InstanceId) != true {
-		fmt.Println("waiting")
+	for ec2_helper.CheckInstanceState(svc, instanceId) != true {
+		// fmt.Println("waiting")
 	}
+	publicDns := ec2_helper.RetrivePublicDns(svc, instanceId)
+	fmt.Println("Public dns is ", publicDns)
 
-	fmt.Println(instance.PublicDnsName)
-	fmt.Println(*instance.PublicDnsName)
-
-	conn, err := ssh.Dial("tcp", *instance.PublicDnsName, config)
+	conn, err := ssh.Dial("tcp", publicDns+":22", config)
+	if err != nil {
+		panic(err)
+	}
 	defer conn.Close()
 
 	sess, err := conn.NewSession()
@@ -54,7 +56,8 @@ func InitializeWorker(svc *ec2.EC2, instance *ec2.Instance) {
 }
 
 func publicKey(path string) ssh.AuthMethod {
-	key, err := ioutil.ReadFile(path)
+	pwd, _ := os.Getwd()
+	key, err := ioutil.ReadFile(pwd + path)
 	if err != nil {
 		panic(err)
 	}
