@@ -1,4 +1,4 @@
-package ec2
+package ec2_helper
 
 import (
 	"encoding/base64"
@@ -14,7 +14,9 @@ import (
 //GetClient starts a new session and returs an aws client
 func GetClient() (svc *ec2.EC2) {
 	//aws will look for credentials and config specified by environment variables
-	s, err := session.NewSession(nil)
+	s, err := session.NewSession(&aws.Config{
+		Region: aws.String("us-east-2"),
+	})
 
 	if err != nil {
 		log.Fatal(err)
@@ -41,11 +43,32 @@ func DescribeInstances(svc *ec2.EC2) {
 	}
 }
 
+func CheckInstanceState(svc *ec2.EC2, instanceId string) bool {
+	machineRunning := false
+	input := &ec2.DescribeInstancesInput{
+		InstanceIds: []*string{
+			aws.String(instanceId),
+		},
+	}
+
+	result, err := svc.DescribeInstances(input)
+	if err != nil {
+		fmt.Println("Error", err)
+	} else {
+		if *result.Reservations[0].Instances[0].PublicDnsName != "" {
+			machineRunning = true
+		}
+	}
+
+	return machineRunning
+}
+
 /*CreateInstance acquires a NEW resource (free tier use image "ami-085925f297f89fce1" and instance "t2.micro" )*/
-func CreateInstance(svc *ec2.EC2, imageID string, instanceType string) {
+func CreateInstance(svc *ec2.EC2, imageID string, instanceType string) *ec2.Instance {
 	runResult, err := svc.RunInstances(&ec2.RunInstancesInput{
 		ImageId:      aws.String(imageID),
 		InstanceType: aws.String(instanceType),
+		KeyName:      aws.String("LuppesKey"),
 		MinCount:     aws.Int64(1),
 		MaxCount:     aws.Int64(1),
 	})
@@ -66,12 +89,14 @@ func CreateInstance(svc *ec2.EC2, imageID string, instanceType string) {
 			},
 		},
 	})
+
 	if errtag != nil {
 		log.Println("Could not create tags for instance", runResult.Instances[0].InstanceId, errtag)
-		return
+	} else {
+		fmt.Println("Successfully tagged instance")
 	}
 
-	fmt.Println("Successfully tagged instance")
+	return runResult.Instances[0]
 }
 
 /*StartInstance can be used to start a particular instance*/
@@ -152,6 +177,23 @@ func RebootInstance(svc *ec2.EC2, id string) {
 		}
 	} else { // This could be due to a lack of permissions
 		fmt.Println("Error", err)
+	}
+}
+
+func TerminateInstance(svc *ec2.EC2, id string) {
+	input := &ec2.TerminateInstancesInput{
+		DryRun: aws.Bool(false),
+		InstanceIds: []*string{
+			aws.String(id),
+		},
+	}
+
+	result, err := svc.TerminateInstances(input)
+
+	if err != nil {
+		fmt.Println("Error", err)
+	} else {
+		fmt.Println("Successfully terminated", result)
 	}
 }
 
