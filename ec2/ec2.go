@@ -43,6 +43,7 @@ func DescribeInstances(svc *ec2.EC2) {
 	}
 }
 
+// Check the state of the machine, the machine is considered running when it has a public dns assigned
 func CheckInstanceState(svc *ec2.EC2, instanceId string) bool {
 	machineRunning := false
 	input := &ec2.DescribeInstancesInput{
@@ -63,6 +64,7 @@ func CheckInstanceState(svc *ec2.EC2, instanceId string) bool {
 	return machineRunning
 }
 
+// Return the public dns of a given instance
 func RetrivePublicDns(svc *ec2.EC2, instanceId string) string {
 	input := &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{
@@ -196,6 +198,7 @@ func RebootInstance(svc *ec2.EC2, id string) {
 	}
 }
 
+// Terminate the instance and realease the machine
 func TerminateInstance(svc *ec2.EC2, id string) {
 	input := &ec2.TerminateInstancesInput{
 		DryRun: aws.Bool(false),
