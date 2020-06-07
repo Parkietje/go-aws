@@ -7,10 +7,13 @@ USAGE:	get a session, which you can use to get aws clients for various services.
 */
 
 import (
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 )
 
 /*GetSession returns a new Session*/
 func GetSession() (*session.Session, error) {
-	return session.NewSession(nil)
+	return session.NewSession(&aws.Config{
+		Region: aws.String("us-east-2"),
+	})
 }

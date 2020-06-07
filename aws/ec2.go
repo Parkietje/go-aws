@@ -41,12 +41,49 @@ func DescribeInstances(svc *ec2.EC2) {
 	}
 }
 
+// Check the state of the machine, the machine is considered running when it has a public dns assigned
+func CheckInstanceState(svc *ec2.EC2, instanceId string) bool {
+	machineRunning := false
+	input := &ec2.DescribeInstancesInput{
+		InstanceIds: []*string{
+			aws.String(instanceId),
+		},
+	}
+
+	result, err := svc.DescribeInstances(input)
+	if err != nil {
+		fmt.Println("Error", err)
+	} else {
+		if *result.Reservations[0].Instances[0].PublicDnsName != "" {
+			machineRunning = true
+		}
+	}
+
+	return machineRunning
+}
+
+// Return the public dns of a given instance
+func RetrivePublicDns(svc *ec2.EC2, instanceId string) string {
+	input := &ec2.DescribeInstancesInput{
+		InstanceIds: []*string{
+			aws.String(instanceId),
+		},
+	}
+
+	result, err := svc.DescribeInstances(input)
+	if err != nil {
+		fmt.Println("Error", err)
+	}
+
+	return *result.Reservations[0].Instances[0].PublicDnsName
+}
+
 /*CreateInstance acquires a NEW resource (free tier use image "ami-085925f297f89fce1" and instance "t2.micro" )*/
-func CreateInstance(svc *ec2.EC2, imageID string, instanceType string) {
+func CreateInstance(svc *ec2.EC2, imageID string, instanceType string) *ec2.Instance {
 	runResult, err := svc.RunInstances(&ec2.RunInstancesInput{
 		ImageId:      aws.String(imageID),
 		InstanceType: aws.String(instanceType),
-		KeyName:      aws.String("go-aws"),
+		KeyName:      aws.String("LuppesKey"),
 		MinCount:     aws.Int64(1),
 		MaxCount:     aws.Int64(1),
 	})
@@ -55,7 +92,8 @@ func CreateInstance(svc *ec2.EC2, imageID string, instanceType string) {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Created instance", *runResult.Instances[0].InstanceId)
+	// fmt.Println("Created instance", *runResult.Instances[0].InstanceId)
+	fmt.Println("Successfully created instance")
 
 	// Add tags to the created instance
 	_, errtag := svc.CreateTags(&ec2.CreateTagsInput{
@@ -67,12 +105,14 @@ func CreateInstance(svc *ec2.EC2, imageID string, instanceType string) {
 			},
 		},
 	})
+
 	if errtag != nil {
 		log.Println("Could not create tags for instance", runResult.Instances[0].InstanceId, errtag)
-		return
+	} else {
+		fmt.Println("Successfully tagged instance")
 	}
 
-	fmt.Println("Successfully tagged instance")
+	return runResult.Instances[0]
 }
 
 /*StartInstance can be used to start a particular instance*/
@@ -153,6 +193,24 @@ func RebootInstance(svc *ec2.EC2, id string) {
 		}
 	} else { // This could be due to a lack of permissions
 		fmt.Println("Error", err)
+	}
+}
+
+// Terminate the instance and realease the machine
+func TerminateInstance(svc *ec2.EC2, id string) {
+	input := &ec2.TerminateInstancesInput{
+		DryRun: aws.Bool(false),
+		InstanceIds: []*string{
+			aws.String(id),
+		},
+	}
+
+	result, err := svc.TerminateInstances(input)
+
+	if err != nil {
+		fmt.Println("Error", err)
+	} else {
+		fmt.Println("Successfully terminated", result)
 	}
 }
 

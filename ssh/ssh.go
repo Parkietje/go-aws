@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	ec2_helper "go-aws/m/v2/ec2"
+	ec2_helper "go-aws/m/v2/aws"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"golang.org/x/crypto/ssh"
