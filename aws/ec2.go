@@ -24,9 +24,7 @@ func GetEC2Client(s *session.Session) (svc *ec2.EC2) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	fmt.Println(credentials) //print the key stored in ~/.aws/credentials
-
 	// Create new EC2 client
 	return ec2.New(s)
 }
@@ -41,15 +39,14 @@ func DescribeInstances(svc *ec2.EC2) {
 	}
 }
 
-// Check the state of the machine, the machine is considered running when it has a public dns assigned
-func CheckInstanceState(svc *ec2.EC2, instanceId string) bool {
+/*CheckInstanceState : the machine, the machine is considered running when it has a public dns assigned*/
+func CheckInstanceState(svc *ec2.EC2, id string) bool {
 	machineRunning := false
 	input := &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{
-			aws.String(instanceId),
+			aws.String(id),
 		},
 	}
-
 	result, err := svc.DescribeInstances(input)
 	if err != nil {
 		fmt.Println("Error", err)
@@ -58,23 +55,20 @@ func CheckInstanceState(svc *ec2.EC2, instanceId string) bool {
 			machineRunning = true
 		}
 	}
-
 	return machineRunning
 }
 
-// Return the public dns of a given instance
-func RetrivePublicDns(svc *ec2.EC2, instanceId string) string {
+/*GetPublicDNS returns the public dns of a given instance*/
+func GetPublicDNS(svc *ec2.EC2, id string) string {
 	input := &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{
-			aws.String(instanceId),
+			aws.String(id),
 		},
 	}
-
 	result, err := svc.DescribeInstances(input)
 	if err != nil {
 		fmt.Println("Error", err)
 	}
-
 	return *result.Reservations[0].Instances[0].PublicDnsName
 }
 
@@ -91,10 +85,8 @@ func CreateInstance(svc *ec2.EC2, imageID string, instanceType string) *ec2.Inst
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	// fmt.Println("Created instance", *runResult.Instances[0].InstanceId)
 	fmt.Println("Successfully created instance")
-
 	// Add tags to the created instance
 	_, errtag := svc.CreateTags(&ec2.CreateTagsInput{
 		Resources: []*string{runResult.Instances[0].InstanceId},
@@ -105,13 +97,11 @@ func CreateInstance(svc *ec2.EC2, imageID string, instanceType string) *ec2.Inst
 			},
 		},
 	})
-
 	if errtag != nil {
 		log.Println("Could not create tags for instance", runResult.Instances[0].InstanceId, errtag)
 	} else {
 		fmt.Println("Successfully tagged instance")
 	}
-
 	return runResult.Instances[0]
 }
 
@@ -127,7 +117,6 @@ func StartInstance(svc *ec2.EC2, id string) {
 	}
 	result, err := svc.StartInstances(input)
 	awsErr, ok := err.(awserr.Error)
-
 	// If the error code is `DryRunOperation` it means we have the necessary
 	// permissions to Start this instance
 	if ok && awsErr.Code() == "DryRunOperation" {
@@ -196,7 +185,7 @@ func RebootInstance(svc *ec2.EC2, id string) {
 	}
 }
 
-// Terminate the instance and realease the machine
+/*TerminateInstance realeases the machine*/
 func TerminateInstance(svc *ec2.EC2, id string) {
 	input := &ec2.TerminateInstancesInput{
 		DryRun: aws.Bool(false),
@@ -204,9 +193,7 @@ func TerminateInstance(svc *ec2.EC2, id string) {
 			aws.String(id),
 		},
 	}
-
 	result, err := svc.TerminateInstances(input)
-
 	if err != nil {
 		fmt.Println("Error", err)
 	} else {
@@ -229,7 +216,6 @@ func MonitorInstance(svc *ec2.EC2, state string, id string) {
 		}
 		result, err := svc.MonitorInstances(input)
 		awsErr, ok := err.(awserr.Error)
-
 		// If the error code is `DryRunOperation` it means we have the necessary
 		// permissions to monitor this instance
 		if ok && awsErr.Code() == "DryRunOperation" {
@@ -274,14 +260,11 @@ func decodeOutputb64(encoded string) string {
 		fmt.Println("Error", err)
 		return ""
 	}
-
 	return string(decoded)
 }
 
 /*GetInstanceConsoleOutput gets the aggregated console output of a particular instance*/
 func GetInstanceConsoleOutput(svc *ec2.EC2, id string) {
-	// Call EC2 GetConsoleOutput API on the given instance according
-	//   https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.GetConsoleOutput
 	input := ec2.GetConsoleOutputInput{InstanceId: aws.String(id)}
 	json, err := svc.GetConsoleOutput(&input)
 	if err != nil {

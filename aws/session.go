@@ -14,6 +14,6 @@ import (
 /*GetSession returns a new Session*/
 func GetSession() (*session.Session, error) {
 	return session.NewSession(&aws.Config{
-		Region: aws.String("us-east-2"),
+		Region: aws.String("us-east-1"),
 	})
 }

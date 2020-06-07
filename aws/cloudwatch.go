@@ -21,7 +21,7 @@ func GetCloudWatchClient(s *session.Session) *cloudwatch.CloudWatch {
 }
 
 /*GetCPUstats returns the 5 min average CPU Utilization for a particular instance*/
-func GetCPUstats(svc *cloudwatch.CloudWatch, instanceID string) {
+func GetCPUstats(svc *cloudwatch.CloudWatch, id string) {
 	var input cloudwatch.GetMetricStatisticsInput
 	now := time.Now()
 	start := now.Add(time.Duration(-5) * time.Minute) //5 minutes ago
@@ -31,7 +31,7 @@ func GetCPUstats(svc *cloudwatch.CloudWatch, instanceID string) {
 	input.Namespace = aws.String("AWS/EC2")
 	dimension := cloudwatch.Dimension{
 		Name:  aws.String("InstanceId"),
-		Value: aws.String(instanceID),
+		Value: aws.String(id),
 	}
 	input.Dimensions = []*cloudwatch.Dimension{&dimension}
 	input.Period = aws.Int64(60) //1 min

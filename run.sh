@@ -11,4 +11,4 @@ go run main.go #comment this in production
 #go build main.go
 
 #and then execute the binary:
-#./main
+#./go-aws

@@ -2,20 +2,19 @@ package ssh
 
 import (
 	"fmt"
+	"go-aws/m/v2/aws"
 	"io"
 	"io/ioutil"
 	"os"
 	"time"
 
-	ec2_helper "go-aws/m/v2/aws"
-
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"golang.org/x/crypto/ssh"
 )
 
-// TODO: pull the dockerfile from the docker hub and run this
-// Connect to the given instance over ssh and install the application and its dependencies
-func InitializeWorker(svc *ec2.EC2, instanceId string) {
+/*InitializeWorker connects to the given instance over ssh and install the application and its dependencies
+TODO: pull the docker image from the docker hub and run it*/
+func InitializeWorker(svc *ec2.EC2, id string) {
 	// Make the config for the ssh connection
 	config := &ssh.ClientConfig{
 		User: "ubuntu",
@@ -26,18 +25,18 @@ func InitializeWorker(svc *ec2.EC2, instanceId string) {
 	}
 
 	// Wait until the instance has a public dns assigned
-	for ec2_helper.CheckInstanceState(svc, instanceId) != true {
+	for aws.CheckInstanceState(svc, id) != true {
 		// fmt.Println("waiting")
 	}
-	publicDns := ec2_helper.RetrivePublicDns(svc, instanceId)
-	fmt.Println("Public dns is ", publicDns)
+	dns := aws.GetPublicDNS(svc, id)
+	fmt.Println("Public dns is ", dns)
 
 	// TODO: fix this
 	// Wait an additional 60 seconds to be sure the instance is open for connections
 	time.Sleep(60 * time.Second)
 
 	// Set up the ssh connection
-	conn, err := ssh.Dial("tcp", publicDns+":22", config)
+	conn, err := ssh.Dial("tcp", dns+":22", config)
 	if err != nil {
 		panic(err)
 	}
