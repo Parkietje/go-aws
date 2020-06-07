@@ -8,6 +8,11 @@ aws management tool
 
 # config
 
+add aws ssh key in `./keys/yourkey.pem`
+
+<!-- TODO: very unsecure, only the loadbalancers IP should be whitelisted automatically -->
+allow ssh connections from any ip in the defaut security group
+
 
 ### UNIX:
 
