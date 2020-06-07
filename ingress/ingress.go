@@ -14,6 +14,7 @@ USAGE:	first call Setup() and then setup an http handler with StyleTransfer
 import (
 	"crypto/rand"
 	"fmt"
+	"go-aws/m/v2/loadbalancer"
 	"io/ioutil"
 	"log"
 	"mime"
@@ -55,6 +56,7 @@ func StyleTransfer(w http.ResponseWriter, r *http.Request) {
 			renderError(w, "\nFAILED")
 		} else {
 			fmt.Fprintf(w, "Files received. Args: size="+r.FormValue("size")+", iterations="+r.FormValue("iterations"))
+			loadbalancer.RunApplication(folder)
 		}
 
 	default:
@@ -83,8 +85,9 @@ func saveImage(w http.ResponseWriter, r *http.Request, name string, folder strin
 		return err
 	}
 	detectedFileType := http.DetectContentType(fileBytes)
+	// TODO: shomehow this case statement gives problems when copying jpeg images, only jpg works for now
 	switch detectedFileType {
-	case "image/jpeg", "image/jpg":
+	case "image/jpg", "image/jpeg":
 	case "image/png":
 	case "application/pdf":
 		break

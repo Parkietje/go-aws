@@ -146,7 +146,7 @@ func copyFileFromHost(srcFilePath string, dstFilePath string, conn *ssh.Client) 
 	}
 }
 
-func RunApplication(svc *ec2.EC2, instanceId string) {
+func RunApplication(svc *ec2.EC2, instanceId string, folder string) {
 	// Make the config for the ssh connection
 	config := &ssh.ClientConfig{
 		User: "ubuntu",
@@ -171,10 +171,14 @@ func RunApplication(svc *ec2.EC2, instanceId string) {
 
 	// Copy the input images to the worker
 	runCommand("mkdir input", conn)
-	copyFileToHost("./style.jpg", "./input/style.jpg", conn)
-	copyFileToHost("./content.jpg", "./input/content.jpg", conn)
+	copyFileToHost("./data/"+folder+"/style.jpg", "./input/style.jpg", conn)
+	copyFileToHost("./data/"+folder+"/content.jpg", "./input/content.jpg", conn)
+
+	// TODO: parametrize iterations and size
 	// Run the application on the docker image
 	runCommand("sudo docker run -v /home/ubuntu/input:/input -v /home/ubuntu/results:/results bobray/style-transfer:firsttry -i 1 -s 50", conn)
-	copyFileFromHost("./results/combined.png", "./combined.png", conn)
-	copyFileFromHost("./results/output.png", "./output.png", conn)
+
+	// Copy the results back
+	copyFileFromHost("./results/combined.png", "./data/"+folder+"/combined.png", conn)
+	copyFileFromHost("./results/output.png", "./data/"+folder+"/output.png", conn)
 }

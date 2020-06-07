@@ -1,8 +1,12 @@
 package main
 
 import (
+	"fmt"
 	aws_helper "go-aws/m/v2/aws"
+	"go-aws/m/v2/ingress"
 	"go-aws/m/v2/loadbalancer"
+	"log"
+	"net/http"
 )
 
 func main() {
@@ -17,14 +21,13 @@ func main() {
 	// Initialize the loadbalancer, this starts a worker pool with 1 worker
 	loadbalancer.Initialize(svc)
 
-	loadbalancer.RunApplication(svc)
-
 	// Start listening for post requests
-	// ingress.Setup()
-	// http.HandleFunc("/", ingress.StyleTransfer)
-	// if err := http.ListenAndServe(":8080", nil); err != nil {
-	// 	log.Fatal(err)
-	// }
+	fmt.Println("Starting ingress server")
+	ingress.Setup()
+	http.HandleFunc("/", ingress.StyleTransfer)
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		log.Fatal(err)
+	}
 
 	// loadbalancer.TerminateAllWorkers(svc)
 }

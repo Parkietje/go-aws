@@ -17,10 +17,14 @@ type worker struct {
 
 // Slice containing all active worker instances
 var (
-	workers []worker
+	workers          []worker
+	loadbalancer_svc *ec2.EC2
 )
 
 func Initialize(svc *ec2.EC2) {
+
+	loadbalancer_svc = svc
+
 	// Request an ubuntu ami on a t2.micro machine type
 	Inst := aws_helper.CreateInstance(svc, "ami-07c1207a9d40bc3bd", "t2.micro")
 
@@ -33,12 +37,12 @@ func Initialize(svc *ec2.EC2) {
 
 }
 
-func RunApplication(svc *ec2.EC2) {
+func RunApplication(folder string) {
 	// TODO: round robin scheduling
 	// Pick a worker to run on, for now pick the first one
 	machine := workers[0]
 
-	ssh.RunApplication(svc, *machine.instance.InstanceId)
+	ssh.RunApplication(loadbalancer_svc, *machine.instance.InstanceId, folder)
 }
 
 func TerminateAllWorkers(svc *ec2.EC2) {
