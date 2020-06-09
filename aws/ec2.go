@@ -25,7 +25,8 @@ func GetEC2Client(s *session.Session) (svc *ec2.EC2) {
 		log.Fatal(err)
 	}
 
-	fmt.Println(credentials) //print the key stored in ~/.aws/credentials
+	// fmt.Println(credentials) //print the key stored in ~/.aws/credentials
+	_ = credentials
 
 	// Create new EC2 client
 	return ec2.New(s)
@@ -93,7 +94,7 @@ func CreateInstance(svc *ec2.EC2, imageID string, instanceType string) *ec2.Inst
 	}
 
 	// fmt.Println("Created instance", *runResult.Instances[0].InstanceId)
-	fmt.Println("Successfully created instance")
+	// fmt.Println("Successfully created instance")
 
 	// Add tags to the created instance
 	_, errtag := svc.CreateTags(&ec2.CreateTagsInput{
@@ -108,8 +109,6 @@ func CreateInstance(svc *ec2.EC2, imageID string, instanceType string) *ec2.Inst
 
 	if errtag != nil {
 		log.Println("Could not create tags for instance", runResult.Instances[0].InstanceId, errtag)
-	} else {
-		fmt.Println("Successfully tagged instance")
 	}
 
 	return runResult.Instances[0]

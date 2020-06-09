@@ -17,6 +17,9 @@ import (
 
 // Connect to the given instance over ssh and install the application and its dependencies
 func InitializeWorker(svc *ec2.EC2, instanceId string) {
+
+	fmt.Println("Initializing worker", instanceId)
+
 	// Make the config for the ssh connection
 	config := &ssh.ClientConfig{
 		User: "ubuntu",
@@ -31,7 +34,7 @@ func InitializeWorker(svc *ec2.EC2, instanceId string) {
 		// fmt.Println("waiting")
 	}
 	publicDns := aws_helper.RetrivePublicDns(svc, instanceId)
-	fmt.Println("Public dns is ", publicDns)
+	// fmt.Println("Public dns is ", publicDns)
 
 	// TODO: fix this
 	// Wait an additional 60 seconds to be sure the instance is open for connections
@@ -50,6 +53,8 @@ func InitializeWorker(svc *ec2.EC2, instanceId string) {
 	runCommand("curl -fsSL https://get.docker.com -o get-docker.sh", conn)
 	runCommand("sudo sh get-docker.sh", conn)
 	runCommand("sudo docker pull bobray/style-transfer:firsttry", conn)
+
+	fmt.Println("Initialized  worker", instanceId)
 }
 
 // Read public key for ssh configuration
@@ -77,12 +82,14 @@ func runCommand(cmd string, conn *ssh.Client) {
 	if err != nil {
 		panic(err)
 	}
-	go io.Copy(os.Stdout, sessStdOut)
+	// go io.Copy(os.Stdout, sessStdOut)
+	_ = sessStdOut
 	sessStderr, err := sess.StderrPipe()
 	if err != nil {
 		panic(err)
 	}
-	go io.Copy(os.Stderr, sessStderr)
+	// go io.Copy(os.Stderr, sessStderr)
+	_ = sessStderr
 
 	err = sess.Run(cmd) // eg., /usr/bin/whoami
 	if err != nil {
@@ -112,7 +119,8 @@ func copyFileToHost(srcFilePath string, dstFilePath string, conn *ssh.Client) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(bytes, "bytes copied")
+	// fmt.Println(bytes, "bytes copied")
+	_ = bytes
 }
 
 func copyFileFromHost(srcFilePath string, dstFilePath string, conn *ssh.Client) {
@@ -137,7 +145,8 @@ func copyFileFromHost(srcFilePath string, dstFilePath string, conn *ssh.Client) 
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(bytes, "bytes copied")
+	// fmt.Println(bytes, "bytes copied")
+	_ = bytes
 
 	// flush in-memory copy
 	err = dstFile.Sync()

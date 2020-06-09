@@ -2,6 +2,7 @@ package loadbalancer
 
 import (
 	"fmt"
+	"sync"
 
 	aws_helper "go-aws/m/v2/aws"
 	"go-aws/m/v2/ssh"
@@ -21,27 +22,54 @@ var (
 	loadbalancer_svc *ec2.EC2
 )
 
-func Initialize(svc *ec2.EC2) {
+var roundRobinIndex int = 0
 
+func Initialize(svc *ec2.EC2, workerCount int) {
+
+	// Make svc global
 	loadbalancer_svc = svc
 
-	// Request an ubuntu ami on a t2.micro machine type
-	Inst := aws_helper.CreateInstance(svc, "ami-068663a3c619dd892", "t2.micro")
+	// Setup wait group
+	var wg sync.WaitGroup
 
-	// Install the application on the instance over ssh
-	ssh.InitializeWorker(svc, *Inst.InstanceId)
-	workers = append(workers, worker{
-		instance: Inst,
-		active:   true,
-	})
+	for i := 0; i < workerCount; i++ {
+		// Increment the wait group
+		wg.Add(1)
+
+		go func() {
+			// Request an ubuntu ami on a t2.micro machine type
+			Inst := aws_helper.CreateInstance(svc, "ami-068663a3c619dd892", "t2.micro")
+
+			// Install the application on the instance over ssh
+			ssh.InitializeWorker(svc, *Inst.InstanceId)
+			workers = append(workers, worker{
+				instance: Inst,
+				active:   true,
+			})
+
+			// Decrement wait group
+			wg.Done()
+		}()
+	}
+
+	// Wait for all workers to initialize
+	wg.Wait()
 
 }
 
 func RunApplication(folder string) {
-	// TODO: round robin scheduling
-	// Pick a worker to run on, for now pick the first one
-	machine := workers[0]
+	// Round Robin Scheduling
+	machine := workers[roundRobinIndex]
 
+	// Increment the round robin index to cycle through the workers
+	roundRobinIndex++
+	if roundRobinIndex == len(workers) {
+		roundRobinIndex = 0
+	}
+
+	fmt.Println("Scheduling request with folder id", folder, "on worker", *machine.instance.InstanceId)
+
+	// Run the application via ssh
 	ssh.RunApplication(loadbalancer_svc, *machine.instance.InstanceId, folder)
 }
 
