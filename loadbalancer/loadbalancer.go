@@ -26,7 +26,7 @@ func Initialize(svc *ec2.EC2) {
 	loadbalancer_svc = svc
 
 	// Request an ubuntu ami on a t2.micro machine type
-	Inst := aws_helper.CreateInstance(svc, "ami-07c1207a9d40bc3bd", "t2.micro")
+	Inst := aws_helper.CreateInstance(svc, "ami-068663a3c619dd892", "t2.micro")
 
 	// Install the application on the instance over ssh
 	ssh.InitializeWorker(svc, *Inst.InstanceId)

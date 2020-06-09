@@ -21,7 +21,7 @@ func InitializeWorker(svc *ec2.EC2, instanceId string) {
 	config := &ssh.ClientConfig{
 		User: "ubuntu",
 		Auth: []ssh.AuthMethod{
-			publicKey("/keys/LuppesKey.pem"),
+			publicKey("/keys/go-aws.pem"),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
@@ -151,7 +151,7 @@ func RunApplication(svc *ec2.EC2, instanceId string, folder string) {
 	config := &ssh.ClientConfig{
 		User: "ubuntu",
 		Auth: []ssh.AuthMethod{
-			publicKey("/keys/LuppesKey.pem"),
+			publicKey("/keys/go-aws.pem"),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
@@ -170,15 +170,15 @@ func RunApplication(svc *ec2.EC2, instanceId string, folder string) {
 	defer conn.Close()
 
 	// Copy the input images to the worker
-	runCommand("mkdir input", conn)
-	copyFileToHost("./data/"+folder+"/style.jpg", "./input/style.jpg", conn)
-	copyFileToHost("./data/"+folder+"/content.jpg", "./input/content.jpg", conn)
+	runCommand("mkdir -p "+folder+"/{input,results}", conn)
+	copyFileToHost("./data/"+folder+"/style.jpg", "./"+folder+"/input/style.jpg", conn)
+	copyFileToHost("./data/"+folder+"/content.jpg", "./"+folder+"/input/content.jpg", conn)
 
 	// TODO: parametrize iterations and size
 	// Run the application on the docker image
-	runCommand("sudo docker run -v /home/ubuntu/input:/input -v /home/ubuntu/results:/results bobray/style-transfer:firsttry -i 1 -s 50", conn)
+	runCommand("sudo docker run -v /home/ubuntu/"+folder+"/input:/input -v /home/ubuntu/"+folder+"/results:/results bobray/style-transfer:firsttry -i 1 -s 50", conn)
 
 	// Copy the results back
-	copyFileFromHost("./results/combined.png", "./data/"+folder+"/combined.png", conn)
-	copyFileFromHost("./results/output.png", "./data/"+folder+"/output.png", conn)
+	copyFileFromHost("./"+folder+"/results/combined.png", "./data/"+folder+"/combined.png", conn)
+	copyFileFromHost("./"+folder+"/results/output.png", "./data/"+folder+"/output.png", conn)
 }

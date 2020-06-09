@@ -56,7 +56,7 @@ func StyleTransfer(w http.ResponseWriter, r *http.Request) {
 			renderError(w, "\nFAILED")
 		} else {
 			fmt.Fprintf(w, "Files received. Args: size="+r.FormValue("size")+", iterations="+r.FormValue("iterations"))
-			loadbalancer.RunApplication(folder)
+			go loadbalancer.RunApplication(folder)
 		}
 
 	default:

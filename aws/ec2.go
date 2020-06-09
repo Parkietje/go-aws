@@ -83,7 +83,7 @@ func CreateInstance(svc *ec2.EC2, imageID string, instanceType string) *ec2.Inst
 	runResult, err := svc.RunInstances(&ec2.RunInstancesInput{
 		ImageId:      aws.String(imageID),
 		InstanceType: aws.String(instanceType),
-		KeyName:      aws.String("LuppesKey"),
+		KeyName:      aws.String("go-aws"),
 		MinCount:     aws.Int64(1),
 		MaxCount:     aws.Int64(1),
 	})
