@@ -3,10 +3,12 @@ package loadbalancer
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	aws_helper "go-aws/m/v2/aws"
 	"go-aws/m/v2/ssh"
 
+	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
@@ -20,14 +22,16 @@ type worker struct {
 var (
 	workers          []worker
 	loadbalancer_svc *ec2.EC2
+	cloudwatch_svc   *cloudwatch.CloudWatch
 )
 
 var roundRobinIndex int = 0
 
-func Initialize(svc *ec2.EC2, workerCount int) {
+func Initialize(svc *ec2.EC2, svc_cloudwatch *cloudwatch.CloudWatch, workerCount int) {
 
 	// Make svc global
 	loadbalancer_svc = svc
+	cloudwatch_svc = svc_cloudwatch
 
 	// Setup wait group
 	var wg sync.WaitGroup
@@ -37,16 +41,8 @@ func Initialize(svc *ec2.EC2, workerCount int) {
 		wg.Add(1)
 
 		go func() {
-			// Request an ubuntu ami on a t2.micro machine type
-			Inst := aws_helper.CreateInstance(svc, "ami-068663a3c619dd892", "t2.micro")
-
-			// Install the application on the instance over ssh
-			ssh.InitializeWorker(svc, *Inst.InstanceId)
-			workers = append(workers, worker{
-				instance: Inst,
-				active:   true,
-			})
-
+			// Add a worker to the pool
+			addWorker()
 			// Decrement wait group
 			wg.Done()
 		}()
@@ -55,6 +51,20 @@ func Initialize(svc *ec2.EC2, workerCount int) {
 	// Wait for all workers to initialize
 	wg.Wait()
 
+	go elasticScaling()
+
+}
+
+func addWorker() {
+	// Request an ubuntu ami on a t2.micro machine type
+	Inst := aws_helper.CreateInstance(loadbalancer_svc, "ami-068663a3c619dd892", "t2.micro")
+
+	// Install the application on the instance over ssh
+	ssh.InitializeWorker(loadbalancer_svc, *Inst.InstanceId)
+	workers = append(workers, worker{
+		instance: Inst,
+		active:   true,
+	})
 }
 
 func RunApplication(folder string) {
@@ -71,6 +81,50 @@ func RunApplication(folder string) {
 
 	// Run the application via ssh
 	ssh.RunApplication(loadbalancer_svc, *machine.instance.InstanceId, folder)
+
+	fmt.Println("Application finished with folder id", folder)
+}
+
+func elasticScaling() {
+
+	// Parameters
+	scaleUpThres := 75.0
+	scaleDownThres := 45.0
+	maxWorkers := 5
+	minWorkers := 1
+
+	cumulativeCpu := 0.0
+	aveCpu := 0.0
+
+	// Endless loop
+	for {
+		cumulativeCpu = 0
+
+		// Loop over all workers and collect cpu usage
+		for _, machine := range workers {
+			cumulativeCpu += aws_helper.GetCPUstats(cloudwatch_svc, *machine.instance.InstanceId)
+		}
+
+		aveCpu = cumulativeCpu / float64(len(workers))
+
+		fmt.Println("Average worker CPU usage is", aveCpu)
+		if aveCpu >= scaleUpThres && len(workers) < maxWorkers {
+			// Add another worker to the pool
+			go addWorker()
+		}
+
+		if aveCpu <= scaleDownThres && len(workers) > minWorkers {
+			fmt.Println("Removing last worker", workers[len(workers)-1].instance.InstanceId, "from pool")
+			// Remove last worker from pool
+			workers = workers[:len(workers)-1]
+
+			// TODO: wait for applications on worker to finish and terminate the instance
+		}
+
+		// Wait 1 minute
+		time.Sleep(60 * time.Second)
+	}
+
 }
 
 func TerminateAllWorkers(svc *ec2.EC2) {

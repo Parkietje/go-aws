@@ -17,9 +17,10 @@ func main() {
 		panic(err)
 	}
 	svc := aws_helper.GetEC2Client(sess)
+	svc_cloudwatch := aws_helper.GetCloudWatchClient(sess)
 
 	// Initialize the loadbalancer, this starts a worker pool with 1 worker
-	loadbalancer.Initialize(svc, 3)
+	loadbalancer.Initialize(svc, svc_cloudwatch, 1)
 
 	// Start listening for post requests
 	fmt.Println("Starting ingress server")

@@ -7,7 +7,6 @@ USAGE:	first get an aws session, then get a cloudwatch client, which you can use
 */
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -21,10 +20,10 @@ func GetCloudWatchClient(s *session.Session) *cloudwatch.CloudWatch {
 }
 
 /*GetCPUstats returns the 5 min average CPU Utilization for a particular instance*/
-func GetCPUstats(svc *cloudwatch.CloudWatch, instanceID string) {
+func GetCPUstats(svc *cloudwatch.CloudWatch, instanceID string) float64 {
 	var input cloudwatch.GetMetricStatisticsInput
 	now := time.Now()
-	start := now.Add(time.Duration(-5) * time.Minute) //5 minutes ago
+	start := now.Add(time.Duration(-10) * time.Minute)
 	input.EndTime = aws.Time(now)
 	input.StartTime = aws.Time(start)
 	input.MetricName = aws.String("CPUUtilization")
@@ -34,12 +33,18 @@ func GetCPUstats(svc *cloudwatch.CloudWatch, instanceID string) {
 		Value: aws.String(instanceID),
 	}
 	input.Dimensions = []*cloudwatch.Dimension{&dimension}
-	input.Period = aws.Int64(60) //1 min
+	input.Period = aws.Int64(5 * 60)
 	input.Statistics = []*string{aws.String("Average")}
 
 	result, err := svc.GetMetricStatistics(&input)
 	if err != nil {
 		print(err.Error())
 	}
-	fmt.Println(result.GoString())
+
+	percentage := 0.0
+	if result.Datapoints != nil {
+		percentage = *result.Datapoints[len(result.Datapoints)-1].Average
+	}
+
+	return percentage
 }
