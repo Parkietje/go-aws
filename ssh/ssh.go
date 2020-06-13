@@ -1,11 +1,14 @@
 package ssh
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	aws_helper "go-aws/m/v2/aws"
@@ -49,6 +52,7 @@ func InitializeWorker(svc *ec2.EC2, instanceId string) {
 
 	// Install docker and pull the application dockerfile
 	runCommand("/usr/bin/sudo apt-get update", conn)
+	runCommand("sudo apt-get --assume-yes install sysstat", conn)
 	runCommand("cd ~", conn)
 	runCommand("curl -fsSL https://get.docker.com -o get-docker.sh", conn)
 	runCommand("sudo sh get-docker.sh", conn)
@@ -167,16 +171,14 @@ func RunApplication(svc *ec2.EC2, instanceId string, folder string) {
 
 	publicDns := aws_helper.RetrivePublicDns(svc, instanceId)
 
-	// TODO: fix this
-	// Wait an additional 60 seconds to be sure the instance is open for connections
-	time.Sleep(60 * time.Second)
-
 	// Set up the ssh connection
 	conn, err := ssh.Dial("tcp", publicDns+":22", config)
 	if err != nil {
 		panic(err)
 	}
 	defer conn.Close()
+
+	time.Sleep(10 * time.Second)
 
 	// Copy the input images to the worker
 	runCommand("mkdir -p "+folder+"/{input,results}", conn)
@@ -190,4 +192,82 @@ func RunApplication(svc *ec2.EC2, instanceId string, folder string) {
 	// Copy the results back
 	copyFileFromHost("./"+folder+"/results/combined.png", "./data/"+folder+"/combined.png", conn)
 	copyFileFromHost("./"+folder+"/results/output.png", "./data/"+folder+"/output.png", conn)
+}
+
+func CheckIfApplicationsAreRunning(svc *ec2.EC2, instanceId string) bool {
+	// Make the config for the ssh connection
+	config := &ssh.ClientConfig{
+		User: "ubuntu",
+		Auth: []ssh.AuthMethod{
+			publicKey("/keys/go-aws.pem"),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+
+	publicDns := aws_helper.RetrivePublicDns(svc, instanceId)
+
+	// Set up the ssh connection
+	conn, err := ssh.Dial("tcp", publicDns+":22", config)
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+
+	sess, err := conn.NewSession()
+	if err != nil {
+		panic(err)
+	}
+	defer sess.Close()
+
+	var b bytes.Buffer
+	sess.Stdout = &b
+
+	err = sess.Run("sudo docker ps | grep style-transfer | wc -l")
+
+	var running bool = true
+	if b.String() == "0" {
+		running = false
+	}
+
+	return running
+}
+
+func GetCpuUtilization(svc *ec2.EC2, instanceId string) float64 {
+	// Make the config for the ssh connection
+	config := &ssh.ClientConfig{
+		User: "ubuntu",
+		Auth: []ssh.AuthMethod{
+			publicKey("/keys/go-aws.pem"),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+
+	publicDns := aws_helper.RetrivePublicDns(svc, instanceId)
+
+	// Set up the ssh connection
+	conn, err := ssh.Dial("tcp", publicDns+":22", config)
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+
+	sess, err := conn.NewSession()
+	if err != nil {
+		panic(err)
+	}
+	defer sess.Close()
+
+	var b bytes.Buffer
+	sess.Stdout = &b
+
+	err = sess.Run("mpstat -P ALL | grep all | awk '{print $3}'")
+
+	percentage := strings.Split(b.String(), "\n")
+
+	utilization, err := strconv.ParseFloat(percentage[0], 64)
+	if err != nil {
+		panic(err)
+	}
+
+	return utilization
 }

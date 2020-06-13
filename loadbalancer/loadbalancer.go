@@ -88,8 +88,8 @@ func RunApplication(folder string) {
 func elasticScaling() {
 
 	// Parameters
-	scaleUpThres := 75.0
-	scaleDownThres := 45.0
+	scaleUpThres := 50.0
+	scaleDownThres := 30.0
 	maxWorkers := 5
 	minWorkers := 1
 
@@ -102,12 +102,16 @@ func elasticScaling() {
 
 		// Loop over all workers and collect cpu usage
 		for _, machine := range workers {
-			cumulativeCpu += aws_helper.GetCPUstats(cloudwatch_svc, *machine.instance.InstanceId)
+			// cumulativeCpu += aws_helper.GetCPUstats(cloudwatch_svc, *machine.instance.InstanceId)
+			cumulativeCpu += ssh.GetCpuUtilization(loadbalancer_svc, *machine.instance.InstanceId)
+
+			// REMOVE
+			ssh.CheckIfApplicationsAreRunning(loadbalancer_svc, *machine.instance.InstanceId)
 		}
 
 		aveCpu = cumulativeCpu / float64(len(workers))
 
-		fmt.Println("Average worker CPU usage is", aveCpu)
+		fmt.Println("Average worker CPU usage is", aveCpu, "with a total of", len(workers), "workers")
 		if aveCpu >= scaleUpThres && len(workers) < maxWorkers {
 			// Add another worker to the pool
 			go addWorker()
@@ -115,14 +119,17 @@ func elasticScaling() {
 
 		if aveCpu <= scaleDownThres && len(workers) > minWorkers {
 			fmt.Println("Removing last worker", workers[len(workers)-1].instance.InstanceId, "from pool")
+
+			workerToTerminate := workers[len(workers)-1]
+
 			// Remove last worker from pool
 			workers = workers[:len(workers)-1]
 
-			// TODO: wait for applications on worker to finish and terminate the instance
+			go waitForApplicationsToFinishAndTerminate(workerToTerminate)
 		}
 
-		// Wait 1 minute
-		time.Sleep(60 * time.Second)
+		// Wait 30 seconds
+		time.Sleep(30 * time.Second)
 	}
 
 }
@@ -137,4 +144,15 @@ func TerminateAllWorkers(svc *ec2.EC2) {
 	}
 
 	fmt.Println("Successfully terminated", len(workers), "machine(s)")
+}
+
+func waitForApplicationsToFinishAndTerminate(machine worker) {
+
+	// Wait for applications to finish
+	for ssh.CheckIfApplicationsAreRunning(loadbalancer_svc, *machine.instance.InstanceId) == true {
+	}
+
+	aws_helper.TerminateInstance(loadbalancer_svc, *machine.instance.InstanceId)
+
+	fmt.Println("Worker", *machine.instance.InstanceId, "terminated")
 }
