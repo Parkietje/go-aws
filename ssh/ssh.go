@@ -52,11 +52,13 @@ func InitializeWorker(svc *ec2.EC2, instanceId string) {
 
 	// Install docker and pull the application dockerfile
 	runCommand("/usr/bin/sudo apt-get update", conn)
-	runCommand("sudo apt-get --assume-yes install sysstat", conn)
+	runCommand("sudo apt-get --assume-yes install sysstat", conn) // TODO: sometimes it breaks on this
 	runCommand("cd ~", conn)
 	runCommand("curl -fsSL https://get.docker.com -o get-docker.sh", conn)
 	runCommand("sudo sh get-docker.sh", conn)
 	runCommand("sudo docker pull bobray/style-transfer:firsttry", conn)
+	copyFileToHost("./heartbeat.sh", "./heartbeat.sh", conn)
+	runCommand("sudo nohup sudo sh ./heartbeat.sh 80.114.173.4 8000 > /dev/null 2>&1 &", conn) // TODO: fix hardcoded ip
 
 	fmt.Println("Initialized  worker", instanceId)
 }
@@ -224,8 +226,11 @@ func CheckIfApplicationsAreRunning(svc *ec2.EC2, instanceId string) bool {
 
 	err = sess.Run("sudo docker ps | grep style-transfer | wc -l")
 
+	applications := strings.Split(b.String(), "\n")[0]
+	fmt.Println(applications, "applications running on worker", instanceId)
+
 	var running bool = true
-	if b.String() == "0" {
+	if applications == "0" {
 		running = false
 	}
 

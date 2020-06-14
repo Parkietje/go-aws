@@ -104,9 +104,6 @@ func elasticScaling() {
 		for _, machine := range workers {
 			// cumulativeCpu += aws_helper.GetCPUstats(cloudwatch_svc, *machine.instance.InstanceId)
 			cumulativeCpu += ssh.GetCpuUtilization(loadbalancer_svc, *machine.instance.InstanceId)
-
-			// REMOVE
-			ssh.CheckIfApplicationsAreRunning(loadbalancer_svc, *machine.instance.InstanceId)
 		}
 
 		aveCpu = cumulativeCpu / float64(len(workers))
@@ -118,7 +115,7 @@ func elasticScaling() {
 		}
 
 		if aveCpu <= scaleDownThres && len(workers) > minWorkers {
-			fmt.Println("Removing last worker", workers[len(workers)-1].instance.InstanceId, "from pool")
+			fmt.Println("Removing last worker", *workers[len(workers)-1].instance.InstanceId, "from pool")
 
 			workerToTerminate := workers[len(workers)-1]
 
