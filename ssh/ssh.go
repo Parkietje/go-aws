@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	defaultUser = "ubuntu"           // default username for ubuntu AMI TODO: make dynamic
-	keyPath     = "/keys/go-aws.pem" // location of ssh secret TODO: cmd arg
+	defaultUser = "ubuntu"       // default username for ubuntu AMI TODO: make dynamic
+	keyPath     = "/keys/awskey" // location of ssh secret TODO: cmd arg
 )
 
 /*InitializeWorker connects to the given instance over ssh and installs the application and its dependencies*/
@@ -206,32 +206,32 @@ func RunApplication(svc *ec2.EC2, instanceID string, folder string) (err error) 
 	time.Sleep(10 * time.Second)
 
 	// Copy the input images to the worker
-	runCommand("mkdir -p "+folder+"/{input,results}", conn)
+	err = runCommand("mkdir -p "+folder+"/{input,results}", conn)
 	if err != nil {
 		return
 	}
-	copyFileToHost("./data/"+folder+"/style.jpg", "./"+folder+"/input/style.jpg", conn)
+	err = copyFileToHost("./data/"+folder+"/style.jpg", "./"+folder+"/input/style.jpg", conn)
 	if err != nil {
 		return
 	}
-	copyFileToHost("./data/"+folder+"/content.jpg", "./"+folder+"/input/content.jpg", conn)
+	err = copyFileToHost("./data/"+folder+"/content.jpg", "./"+folder+"/input/content.jpg", conn)
 	if err != nil {
 		return
 	}
 
 	// TODO: parametrize iterations and size
 	// Run the application on the docker image
-	runCommand("sudo docker run -v /home/ubuntu/"+folder+"/input:/input -v /home/ubuntu/"+folder+"/results:/results bobray/style-transfer:firsttry -i 1 -s 50", conn)
+	err = runCommand("sudo docker run -v /home/ubuntu/"+folder+"/input:/input -v /home/ubuntu/"+folder+"/results:/results bobray/style-transfer:firsttry -i 1 -s 50", conn)
 	if err != nil {
 		return
 	}
 
 	// Copy the results back
-	copyFileFromHost("./"+folder+"/results/combined.png", "./data/"+folder+"/combined.png", conn)
+	err = copyFileFromHost("./"+folder+"/results/combined.png", "./data/"+folder+"/combined.png", conn)
 	if err != nil {
 		return
 	}
-	copyFileFromHost("./"+folder+"/results/output.png", "./data/"+folder+"/output.png", conn)
+	err = copyFileFromHost("./"+folder+"/results/output.png", "./data/"+folder+"/output.png", conn)
 	if err != nil {
 		return
 	}

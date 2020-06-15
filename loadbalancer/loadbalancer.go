@@ -118,9 +118,13 @@ func RunApplication(folder string) {
 	fmt.Println("Scheduling request with folder id", folder, "on worker", *machine.instance.InstanceId)
 
 	// Run the application via ssh
-	ssh.RunApplication(ec2Client, *machine.instance.InstanceId, folder)
-
-	fmt.Println("Application finished with folder id", folder)
+	err := ssh.RunApplication(ec2Client, *machine.instance.InstanceId, folder)
+	if err != nil {
+		fmt.Println("Failed: ", folder)
+		fmt.Println(err)
+	} else {
+		fmt.Println("Application finished with folder id", folder)
+	}
 }
 
 /*TerminateAllWorkers shuts down all workers immediately*/
