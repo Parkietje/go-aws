@@ -42,15 +42,14 @@ func DescribeInstances(svc *ec2.EC2) {
 	}
 }
 
-// Check the state of the machine, the machine is considered running when it has a public dns assigned
-func CheckInstanceState(svc *ec2.EC2, instanceId string) bool {
+//CheckInstanceState returns true when the instance with specified id has a public dns assigned
+func CheckInstanceState(svc *ec2.EC2, ID string) bool {
 	machineRunning := false
 	input := &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{
-			aws.String(instanceId),
+			aws.String(ID),
 		},
 	}
-
 	result, err := svc.DescribeInstances(input)
 	if err != nil {
 		fmt.Println("Error", err)
@@ -59,23 +58,20 @@ func CheckInstanceState(svc *ec2.EC2, instanceId string) bool {
 			machineRunning = true
 		}
 	}
-
 	return machineRunning
 }
 
-// Return the public dns of a given instance
-func RetrivePublicDns(svc *ec2.EC2, instanceId string) string {
+/*GetPublicDNS returns the public dns of a given instance*/
+func GetPublicDNS(svc *ec2.EC2, ID string) string {
 	input := &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{
-			aws.String(instanceId),
+			aws.String(ID),
 		},
 	}
-
 	result, err := svc.DescribeInstances(input)
 	if err != nil {
 		fmt.Println("Error", err)
 	}
-
 	return *result.Reservations[0].Instances[0].PublicDnsName
 }
 
@@ -195,7 +191,7 @@ func RebootInstance(svc *ec2.EC2, id string) {
 	}
 }
 
-// Terminate the instance and realease the machine
+/*TerminateInstance terminates and releases the machine immediately*/
 func TerminateInstance(svc *ec2.EC2, id string) {
 	input := &ec2.TerminateInstancesInput{
 		DryRun: aws.Bool(false),
@@ -203,9 +199,7 @@ func TerminateInstance(svc *ec2.EC2, id string) {
 			aws.String(id),
 		},
 	}
-
 	result, err := svc.TerminateInstances(input)
-
 	if err != nil {
 		fmt.Println("Error", err)
 	} else {
