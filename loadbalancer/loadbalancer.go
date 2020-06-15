@@ -72,7 +72,11 @@ func elasticScaling() {
 		sumCPU = 0
 		// Loop over all workers and collect cpu usage
 		for _, machine := range workers {
-			sumCPU += ssh.GetCPUUtilization(ec2Client, *machine.instance.InstanceId)
+			res, err := ssh.GetCPUUtilization(ec2Client, *machine.instance.InstanceId)
+			//TODO on error should we retry? or reboot?
+			if err == nil {
+				sumCPU += res
+			}
 		}
 		avgCPU = sumCPU / float64(len(workers))
 		fmt.Println("Average worker CPU usage is", avgCPU, "with a total of", len(workers), "workers")
