@@ -295,3 +295,41 @@ func GetCpuUtilization(svc *ec2.EC2, instanceId string) float64 {
 
 	return utilization
 }
+
+func RestartWorker(svc *ec2.EC2, instanceId string) {
+
+	fmt.Println("Restarting worker", instanceId)
+
+	// Make the config for the ssh connection
+	config := &ssh.ClientConfig{
+		User: "ubuntu",
+		Auth: []ssh.AuthMethod{
+			publicKey("/keys/go-aws.pem"),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+
+	// Wait until the instance has a public dns assigned
+	for aws_helper.CheckInstanceState(svc, instanceId) != true {
+		// fmt.Println("waiting")
+	}
+	publicDns := aws_helper.RetrivePublicDns(svc, instanceId)
+	// fmt.Println("Public dns is ", publicDns)
+
+	// TODO: fix this
+	// Wait an additional 60 seconds to be sure the instance is open for connections
+	time.Sleep(60 * time.Second)
+
+	// Set up the ssh connection
+	conn, err := ssh.Dial("tcp", publicDns+":22", config)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer conn.Close()
+
+	runCommand("cd ~", conn)
+	runCommand("sudo nohup sudo sh ./heartbeat.sh 80.114.173.4 8000 > /dev/null 2>&1 &", conn) // TODO: fix hardcoded ip
+
+	fmt.Println("Restarted  worker", instanceId)
+}

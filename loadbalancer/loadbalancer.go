@@ -107,10 +107,10 @@ func RunApplication(folder string) {
 func elasticScaling() {
 
 	// Parameters
-	scaleUpThres := 50.0
+	scaleUpThres := 70.0
 	scaleDownThres := 30.0
 	maxWorkers := 5
-	minWorkers := 1
+	minWorkers := 2
 
 	cumulativeCpu := 0.0
 	aveCpu := 0.0
@@ -196,19 +196,24 @@ func MonitorHeartbeats() {
 			remoteIp := strings.Split(c.RemoteAddr().String(), ":")[0]
 
 			var machine worker
-			for _, m := range workers {
+			var machineIndex int
+			for index, m := range workers {
 				if m.ip == remoteIp {
 					machine = m
+					machineIndex = index
 				}
 			}
 
 			if machine.instance.InstanceId != nil {
 				fmt.Println("Received heartbeat from", *machine.instance.InstanceId)
 				timestamp := time.Now().Unix()
-				machine.heartbeat = timestamp
+				// machine.heartbeat = timestamp
+				workers[machineIndex].heartbeat = timestamp
 
 				go func() {
-					time.Sleep(60 * time.Second)
+					time.Sleep(40 * time.Second)
+
+					fmt.Print("Checking if heartbeat of worker ", *machine.instance.InstanceId, " has updated...   ")
 
 					for _, m := range workers {
 						if m.ip == remoteIp {
@@ -220,25 +225,32 @@ func MonitorHeartbeats() {
 						// No new heartbeat received
 
 						// Set machine inactive
-						for _, m := range workers {
+						for index, m := range workers {
 							if m.ip == remoteIp {
-								m.active = false
+								workers[index].active = false
 							}
 						}
 
 						// Reboot the machine
-						fmt.Println("Rebooting failed worker", *machine.instance.InstanceId)
+						fmt.Print("rebooting failed worker", *machine.instance.InstanceId, "\n")
 						// aws_helper.RebootInstance(loadbalancer_svc, *machine.instance.InstanceId) // Do this in production
 						aws_helper.StartInstance(loadbalancer_svc, *machine.instance.InstanceId)
+
+						// Restart the required applications on the machine
+						ssh.RestartWorker(loadbalancer_svc, *machine.instance.InstanceId)
+						publicDns := aws_helper.RetrivePublicDns(loadbalancer_svc, *machine.instance.InstanceId)
 
 						machine.heartbeat = time.Now().Unix()
 
 						// Set machine active
-						for _, m := range workers {
+						for index, m := range workers {
 							if m.ip == remoteIp {
-								m.active = true
+								workers[index].active = true
+								workers[index].ip = strings.Replace(strings.Split(publicDns, ".")[0][4:], "-", ".", -1) // TODO: clean this up
 							}
 						}
+					} else {
+						fmt.Print("updated correctly (", timestamp, " -> ", machine.heartbeat, ") \n")
 					}
 				}()
 

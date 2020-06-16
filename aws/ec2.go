@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -137,10 +138,14 @@ func StartInstance(svc *ec2.EC2, id string) {
 			fmt.Println("Error", err)
 		} else {
 			_ = result
-			fmt.Println("Successfully started worker", id)
+			// fmt.Println("Successfully started worker", id)
 		}
 	} else { // This could be due to a lack of permissions
 		fmt.Println("Error", err)
+
+		// Wait and try again
+		time.Sleep(30 * time.Second)
+		StartInstance(svc, id)
 	}
 }
 
