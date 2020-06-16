@@ -136,7 +136,8 @@ func StartInstance(svc *ec2.EC2, id string) {
 		if err != nil {
 			fmt.Println("Error", err)
 		} else {
-			fmt.Println("Successfully started", result.StartingInstances)
+			_ = result
+			fmt.Println("Successfully started worker", id)
 		}
 	} else { // This could be due to a lack of permissions
 		fmt.Println("Error", err)
@@ -188,7 +189,8 @@ func RebootInstance(svc *ec2.EC2, id string) {
 		if err != nil {
 			fmt.Println("Error", err)
 		} else {
-			fmt.Println("Successfully rebooted", result)
+			_ = result
+			fmt.Println("Successfully rebooted worker", id)
 		}
 	} else { // This could be due to a lack of permissions
 		fmt.Println("Error", err)

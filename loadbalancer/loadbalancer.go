@@ -2,6 +2,8 @@ package loadbalancer
 
 import (
 	"fmt"
+	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,8 +16,10 @@ import (
 
 // Worker struct that keeps track of the instance and status of the machine
 type worker struct {
-	instance *ec2.Instance
-	active   bool
+	instance  *ec2.Instance
+	active    bool
+	ip        string
+	heartbeat int64
 }
 
 // Slice containing all active worker instances
@@ -52,6 +56,7 @@ func Initialize(svc *ec2.EC2, svc_cloudwatch *cloudwatch.CloudWatch, workerCount
 	wg.Wait()
 
 	go elasticScaling()
+	go MonitorHeartbeats()
 
 }
 
@@ -61,15 +66,29 @@ func addWorker() {
 
 	// Install the application on the instance over ssh
 	ssh.InitializeWorker(loadbalancer_svc, *Inst.InstanceId)
+	publicDns := aws_helper.RetrivePublicDns(loadbalancer_svc, *Inst.InstanceId)
 	workers = append(workers, worker{
-		instance: Inst,
-		active:   true,
+		instance:  Inst,
+		active:    true,
+		ip:        strings.Replace(strings.Split(publicDns, ".")[0][4:], "-", ".", -1), // TODO: clean this up
+		heartbeat: time.Now().Unix(),
 	})
 }
 
 func RunApplication(folder string) {
 	// Round Robin Scheduling
 	machine := workers[roundRobinIndex]
+
+	// Only run on active workers
+	for machine.active == false {
+		// Increment the round robin index to cycle through the workers
+		roundRobinIndex++
+		if roundRobinIndex == len(workers) {
+			roundRobinIndex = 0
+		}
+
+		machine = workers[roundRobinIndex]
+	}
 
 	// Increment the round robin index to cycle through the workers
 	roundRobinIndex++
@@ -101,14 +120,18 @@ func elasticScaling() {
 		cumulativeCpu = 0
 
 		// Loop over all workers and collect cpu usage
+		var activeWorkerCount int
 		for _, machine := range workers {
 			// cumulativeCpu += aws_helper.GetCPUstats(cloudwatch_svc, *machine.instance.InstanceId)
-			cumulativeCpu += ssh.GetCpuUtilization(loadbalancer_svc, *machine.instance.InstanceId)
+			if machine.active {
+				cumulativeCpu += ssh.GetCpuUtilization(loadbalancer_svc, *machine.instance.InstanceId)
+				activeWorkerCount++
+			}
 		}
 
-		aveCpu = cumulativeCpu / float64(len(workers))
+		aveCpu = cumulativeCpu / float64(activeWorkerCount)
 
-		fmt.Println("Average worker CPU usage is", aveCpu, "with a total of", len(workers), "workers")
+		fmt.Println("Average worker CPU usage is", aveCpu, "with a total of", activeWorkerCount, "active workers")
 		if aveCpu >= scaleUpThres && len(workers) < maxWorkers {
 			// Add another worker to the pool
 			go addWorker()
@@ -152,4 +175,77 @@ func waitForApplicationsToFinishAndTerminate(machine worker) {
 	aws_helper.TerminateInstance(loadbalancer_svc, *machine.instance.InstanceId)
 
 	fmt.Println("Worker", *machine.instance.InstanceId, "terminated")
+}
+
+func MonitorHeartbeats() {
+	l, err := net.Listen("tcp4", ":8000")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer l.Close()
+
+	for {
+		c, err := l.Accept()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		go func() {
+			remoteIp := strings.Split(c.RemoteAddr().String(), ":")[0]
+
+			var machine worker
+			for _, m := range workers {
+				if m.ip == remoteIp {
+					machine = m
+				}
+			}
+
+			if machine.instance.InstanceId != nil {
+				fmt.Println("Received heartbeat from", *machine.instance.InstanceId)
+				timestamp := time.Now().Unix()
+				machine.heartbeat = timestamp
+
+				go func() {
+					time.Sleep(60 * time.Second)
+
+					for _, m := range workers {
+						if m.ip == remoteIp {
+							machine = m
+						}
+					}
+
+					if machine.heartbeat == timestamp {
+						// No new heartbeat received
+
+						// Set machine inactive
+						for _, m := range workers {
+							if m.ip == remoteIp {
+								m.active = false
+							}
+						}
+
+						// Reboot the machine
+						fmt.Println("Rebooting failed worker", *machine.instance.InstanceId)
+						// aws_helper.RebootInstance(loadbalancer_svc, *machine.instance.InstanceId) // Do this in production
+						aws_helper.StartInstance(loadbalancer_svc, *machine.instance.InstanceId)
+
+						machine.heartbeat = time.Now().Unix()
+
+						// Set machine active
+						for _, m := range workers {
+							if m.ip == remoteIp {
+								m.active = true
+							}
+						}
+					}
+				}()
+
+			} else {
+				fmt.Println("Received heartbeat from unknown machine")
+			}
+			c.Close()
+		}()
+	}
 }

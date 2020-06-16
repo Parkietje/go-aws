@@ -46,7 +46,8 @@ func InitializeWorker(svc *ec2.EC2, instanceId string) {
 	// Set up the ssh connection
 	conn, err := ssh.Dial("tcp", publicDns+":22", config)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 	defer conn.Close()
 
@@ -68,11 +69,11 @@ func publicKey(path string) ssh.AuthMethod {
 	pwd, _ := os.Getwd()
 	key, err := ioutil.ReadFile(pwd + path)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 	signer, err := ssh.ParsePrivateKey(key)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 	return ssh.PublicKeys(signer)
 }
@@ -81,49 +82,57 @@ func publicKey(path string) ssh.AuthMethod {
 func runCommand(cmd string, conn *ssh.Client) {
 	sess, err := conn.NewSession()
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 	defer sess.Close()
 	sessStdOut, err := sess.StdoutPipe()
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 	// go io.Copy(os.Stdout, sessStdOut)
 	_ = sessStdOut
 	sessStderr, err := sess.StderrPipe()
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 	// go io.Copy(os.Stderr, sessStderr)
 	_ = sessStderr
 
 	err = sess.Run(cmd) // eg., /usr/bin/whoami
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 }
 
 func copyFileToHost(srcFilePath string, dstFilePath string, conn *ssh.Client) {
 	client, err := sftp.NewClient(conn)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 	defer client.Close()
 
 	dstFile, err := client.Create(dstFilePath)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 	defer dstFile.Close()
 
 	srcFile, err := os.Open(srcFilePath)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 
 	bytes, err := io.Copy(dstFile, srcFile)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 	// fmt.Println(bytes, "bytes copied")
 	_ = bytes
@@ -132,24 +141,28 @@ func copyFileToHost(srcFilePath string, dstFilePath string, conn *ssh.Client) {
 func copyFileFromHost(srcFilePath string, dstFilePath string, conn *ssh.Client) {
 	client, err := sftp.NewClient(conn)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 	defer client.Close()
 
 	dstFile, err := os.Create(dstFilePath)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 	defer dstFile.Close()
 
 	srcFile, err := client.Open(srcFilePath)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 
 	bytes, err := io.Copy(dstFile, srcFile)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 	// fmt.Println(bytes, "bytes copied")
 	_ = bytes
@@ -176,7 +189,8 @@ func RunApplication(svc *ec2.EC2, instanceId string, folder string) {
 	// Set up the ssh connection
 	conn, err := ssh.Dial("tcp", publicDns+":22", config)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 	defer conn.Close()
 
@@ -211,13 +225,15 @@ func CheckIfApplicationsAreRunning(svc *ec2.EC2, instanceId string) bool {
 	// Set up the ssh connection
 	conn, err := ssh.Dial("tcp", publicDns+":22", config)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return true
 	}
 	defer conn.Close()
 
 	sess, err := conn.NewSession()
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return true
 	}
 	defer sess.Close()
 
@@ -252,13 +268,15 @@ func GetCpuUtilization(svc *ec2.EC2, instanceId string) float64 {
 	// Set up the ssh connection
 	conn, err := ssh.Dial("tcp", publicDns+":22", config)
 	if err != nil {
-		panic(err)
+		// fmt.Println(err)
+		return 0.0
 	}
 	defer conn.Close()
 
 	sess, err := conn.NewSession()
 	if err != nil {
-		panic(err)
+		// fmt.Println(err)
+		return 0.0
 	}
 	defer sess.Close()
 
@@ -271,7 +289,8 @@ func GetCpuUtilization(svc *ec2.EC2, instanceId string) float64 {
 
 	utilization, err := strconv.ParseFloat(percentage[0], 64)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return 0.0
 	}
 
 	return utilization
