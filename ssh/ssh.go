@@ -36,7 +36,7 @@ func InitializeWorker(svc *ec2.EC2, instanceId string) {
 	for aws_helper.CheckInstanceState(svc, instanceId) != true {
 		// fmt.Println("waiting")
 	}
-	publicDns := aws_helper.RetrivePublicDns(svc, instanceId)
+	publicDns := aws_helper.RetrievePublicDns(svc, instanceId)
 	// fmt.Println("Public dns is ", publicDns)
 
 	// TODO: fix this
@@ -184,7 +184,7 @@ func RunApplication(svc *ec2.EC2, instanceId string, folder string) {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
-	publicDns := aws_helper.RetrivePublicDns(svc, instanceId)
+	publicDns := aws_helper.RetrievePublicDns(svc, instanceId)
 
 	// Set up the ssh connection
 	conn, err := ssh.Dial("tcp", publicDns+":22", config)
@@ -220,7 +220,7 @@ func CheckIfApplicationsAreRunning(svc *ec2.EC2, instanceId string) bool {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
-	publicDns := aws_helper.RetrivePublicDns(svc, instanceId)
+	publicDns := aws_helper.RetrievePublicDns(svc, instanceId)
 
 	// Set up the ssh connection
 	conn, err := ssh.Dial("tcp", publicDns+":22", config)
@@ -263,7 +263,7 @@ func GetCpuUtilization(svc *ec2.EC2, instanceId string) float64 {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
-	publicDns := aws_helper.RetrivePublicDns(svc, instanceId)
+	publicDns := aws_helper.RetrievePublicDns(svc, instanceId)
 
 	// Set up the ssh connection
 	conn, err := ssh.Dial("tcp", publicDns+":22", config)
@@ -313,7 +313,7 @@ func RestartWorker(svc *ec2.EC2, instanceId string) {
 	for aws_helper.CheckInstanceState(svc, instanceId) != true {
 		// fmt.Println("waiting")
 	}
-	publicDns := aws_helper.RetrivePublicDns(svc, instanceId)
+	publicDns := aws_helper.RetrievePublicDns(svc, instanceId)
 	// fmt.Println("Public dns is ", publicDns)
 
 	// TODO: fix this

@@ -66,7 +66,7 @@ func addWorker() {
 
 	// Install the application on the instance over ssh
 	ssh.InitializeWorker(loadbalancer_svc, *Inst.InstanceId)
-	publicDns := aws_helper.RetrivePublicDns(loadbalancer_svc, *Inst.InstanceId)
+	publicDns := aws_helper.RetrievePublicDns(loadbalancer_svc, *Inst.InstanceId)
 	workers = append(workers, worker{
 		instance:  Inst,
 		active:    true,
@@ -194,6 +194,7 @@ func MonitorHeartbeats() {
 
 		go func() {
 			remoteIp := strings.Split(c.RemoteAddr().String(), ":")[0]
+			fmt.Print("Pinged by remote ", remoteIp)
 
 			var machine worker
 			var machineIndex int
@@ -204,7 +205,9 @@ func MonitorHeartbeats() {
 				}
 			}
 
-			if machine.instance.InstanceId != nil {
+			fmt.Print(", found corresponding worker ", machine, "\n")
+
+			if machine.instance != nil {
 				fmt.Println("Received heartbeat from", *machine.instance.InstanceId)
 				timestamp := time.Now().Unix()
 				// machine.heartbeat = timestamp
@@ -232,19 +235,21 @@ func MonitorHeartbeats() {
 						}
 
 						// Reboot the machine
-						fmt.Print("rebooting failed worker", *machine.instance.InstanceId, "\n")
+						fmt.Print("rebooting failed worker ", *machine.instance.InstanceId, "\n")
 						// aws_helper.RebootInstance(loadbalancer_svc, *machine.instance.InstanceId) // Do this in production
 						aws_helper.StartInstance(loadbalancer_svc, *machine.instance.InstanceId)
+						inst := aws_helper.RetrieveInstance(loadbalancer_svc, *machine.instance.InstanceId)
 
 						// Restart the required applications on the machine
 						ssh.RestartWorker(loadbalancer_svc, *machine.instance.InstanceId)
-						publicDns := aws_helper.RetrivePublicDns(loadbalancer_svc, *machine.instance.InstanceId)
+						publicDns := aws_helper.RetrievePublicDns(loadbalancer_svc, *machine.instance.InstanceId)
 
 						machine.heartbeat = time.Now().Unix()
 
 						// Set machine active
 						for index, m := range workers {
 							if m.ip == remoteIp {
+								workers[index].instance = inst
 								workers[index].active = true
 								workers[index].ip = strings.Replace(strings.Split(publicDns, ".")[0][4:], "-", ".", -1) // TODO: clean this up
 							}

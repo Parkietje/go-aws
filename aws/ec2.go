@@ -65,7 +65,13 @@ func CheckInstanceState(svc *ec2.EC2, instanceId string) bool {
 }
 
 // Return the public dns of a given instance
-func RetrivePublicDns(svc *ec2.EC2, instanceId string) string {
+func RetrievePublicDns(svc *ec2.EC2, instanceId string) string {
+	inst := RetrieveInstance(svc, instanceId)
+
+	return *inst.PublicDnsName
+}
+
+func RetrieveInstance(svc *ec2.EC2, instanceId string) *ec2.Instance {
 	input := &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{
 			aws.String(instanceId),
@@ -77,7 +83,7 @@ func RetrivePublicDns(svc *ec2.EC2, instanceId string) string {
 		fmt.Println("Error", err)
 	}
 
-	return *result.Reservations[0].Instances[0].PublicDnsName
+	return result.Reservations[0].Instances[0]
 }
 
 /*CreateInstance acquires a NEW resource (free tier use image "ami-085925f297f89fce1" and instance "t2.micro" )*/
@@ -136,9 +142,14 @@ func StartInstance(svc *ec2.EC2, id string) {
 		result, err = svc.StartInstances(input)
 		if err != nil {
 			fmt.Println("Error", err)
+
+			// Wait and try again
+			time.Sleep(30 * time.Second)
+			StartInstance(svc, id)
 		} else {
 			_ = result
 			// fmt.Println("Successfully started worker", id)
+			// fmt.Println(result)
 		}
 	} else { // This could be due to a lack of permissions
 		fmt.Println("Error", err)
