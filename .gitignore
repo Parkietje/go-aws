@@ -10,3 +10,5 @@ data/*
 *.jpg
 *.jpeg
 
+#logs
+*.csv

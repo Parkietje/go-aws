@@ -3,9 +3,11 @@ package loadbalancer
 import (
 	"fmt"
 	"go-aws/m/v2/aws"
+	"strconv"
 	"sync"
 	"time"
 
+	"go-aws/m/v2/logger"
 	"go-aws/m/v2/ssh"
 
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
@@ -45,6 +47,10 @@ func Initialize(ec2 *ec2.EC2, cloudwatch *cloudwatch.CloudWatch, workerCount int
 	}
 	// Wait for all workers to initialize
 	wg.Wait()
+
+	// Initialize the logger, this creates the csv file
+	logger.Init()
+
 	go elasticScaling()
 }
 
@@ -56,6 +62,10 @@ func addWorker(AMI string, instanceType string) {
 		instance: Inst,
 		active:   true,
 	})
+
+	// Log the new number of workers
+	workerCount := strconv.Itoa(len(workers)) // This has to be a string
+	logger.Log(workerCount)
 }
 
 func elasticScaling() {
