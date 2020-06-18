@@ -88,13 +88,13 @@ func elasticScaling() {
 	// Parameters
 	scaleUpThres := 30.0
 	scaleDownThres := 10.0
-	maxWorkers := 5
+	maxWorkers := 3
 	minWorkers := 1
 
 	sumCPU := 0.0
 	avgCPU := 0.0
 
-	failed := 0 //just to calculate a better avg
+	failed := 0 //calculate a dynamic avg
 
 	for {
 		sumCPU = 0
@@ -109,7 +109,7 @@ func elasticScaling() {
 			}
 		}
 		avgCPU = sumCPU / (float64(len(workers) - failed))
-		fmt.Println("Average worker CPU usage is", avgCPU, "with a total of", len(workers), "workers")
+		fmt.Println("Average worker CPU usage is", avgCPU, "with a total of", len(workers)-failed, "workers")
 
 		// Add another worker to the pool if CPU exceeds thresh and workers < max
 		if avgCPU >= scaleUpThres && len(workers) < maxWorkers {
