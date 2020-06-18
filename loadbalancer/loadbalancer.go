@@ -74,7 +74,13 @@ func addWorker(AMI string, instanceType string) {
 	}
 
 	// Log the new number of workers
-	workerCount := strconv.Itoa(len(workers)) // This has to be a string
+	var activeWorkerCount int
+	for _, machine := range workers {
+		if machine.active {
+			activeWorkerCount++
+		}
+	}
+	workerCount := strconv.Itoa(activeWorkerCount) // This has to be a string
 	logger.Log(workerCount)
 }
 
