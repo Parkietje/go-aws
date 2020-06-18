@@ -133,6 +133,15 @@ func waitForApplicationsToFinishAndTerminate(machine worker) {
 	}
 	aws.TerminateInstance(ec2Client, *machine.instance.InstanceId)
 	fmt.Println("Worker", *machine.instance.InstanceId, "terminated")
+	// Log the new number of workers
+	var activeWorkerCount int
+	for _, machine := range workers {
+		if machine.active {
+			activeWorkerCount++
+		}
+	}
+	workerCount := strconv.Itoa(activeWorkerCount) // This has to be a string
+	logger.Log(workerCount)
 }
 
 /*RunApplication schedules a worker to process the contents of the given folder*/
