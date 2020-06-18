@@ -18,11 +18,12 @@ import (
 )
 
 const (
-	defaultUser = "ubuntu"       // default username for ubuntu AMI TODO: make dynamic
-	keyPath     = "/keys/awskey" // location of ssh secret TODO: cmd arg
-	data        = "data"         // data upload folder
-	combined    = "combined.png" //result file
-	home        = "/home/ubuntu" //worker home folder
+	defaultUser = "ubuntu"                         // default username for ubuntu AMI TODO: make dynamic
+	keyPath     = "/keys/awskey"                   // location of ssh secret TODO: cmd arg
+	data        = "data"                           // data upload folder
+	combined    = "combined.png"                   // result file
+	home        = "/home/ubuntu"                   // worker home folder
+	docker      = "bobray/style-transfer:firsttry" // docker image to pull
 )
 
 /*InitializeWorker connects to the given instance over ssh and installs the application and its dependencies*/
@@ -221,8 +222,8 @@ func RunApplication(svc *ec2.EC2, instanceID string, folder string, styleFile st
 	//make folders on worker
 	workerInputFolder := filepath.Join(home, folder, "input")
 	workerResultFolder := filepath.Join(home, folder, "results")
-	fmt.Println("worker inputFolder: " + workerInputFolder)
-	fmt.Println("worker resultsFolder: " + workerResultFolder)
+	//fmt.Println("worker inputFolder: " + workerInputFolder)
+	//fmt.Println("worker resultsFolder: " + workerResultFolder)
 	err = runCommand("mkdir -p "+workerInputFolder, conn)
 	if err != nil {
 		fmt.Println("ssh run app: mkdir1 NOK")
@@ -236,13 +237,13 @@ func RunApplication(svc *ec2.EC2, instanceID string, folder string, styleFile st
 
 	//dynamic paths
 	styleSrc := filepath.Join(data, folder, styleFile)
-	fmt.Println("host styleSrc: " + "./" + styleSrc)
+	//fmt.Println("host styleSrc: " + "./" + styleSrc)
 	contentSrc := filepath.Join(data, folder, contentFile)
-	fmt.Println("host contentSrc: " + "./" + contentSrc)
+	//fmt.Println("host contentSrc: " + "./" + contentSrc)
 	styleDest := filepath.Join(workerInputFolder, styleFile)
-	fmt.Println("worker styleDest: " + styleDest)
+	//fmt.Println("worker styleDest: " + styleDest)
 	contentDest := filepath.Join(workerInputFolder, contentFile)
-	fmt.Println("worker contentDest: " + contentDest)
+	//fmt.Println("worker contentDest: " + contentDest)
 
 	//copy to worker
 	err = copyFileToHost("./"+styleSrc, styleDest, conn)
@@ -256,7 +257,7 @@ func RunApplication(svc *ec2.EC2, instanceID string, folder string, styleFile st
 
 	// TODO: parametrize iterations and size
 	// Run the application on the docker image
-	cmd := "sudo docker run -v " + workerInputFolder + ":/input -v " + workerResultFolder + ":/results bobray/style-transfer:firsttry -i 1 -s 50"
+	cmd := "sudo docker run -v " + workerInputFolder + ":/input -v " + workerResultFolder + ":/results " + docker + " -i 1 -s 50"
 	err = runCommand(cmd, conn)
 	if err != nil {
 		fmt.Println("ssh run app: following docker run cmd failed:")
@@ -266,9 +267,9 @@ func RunApplication(svc *ec2.EC2, instanceID string, folder string, styleFile st
 
 	// Copy the results back
 	resultFileSrc := filepath.Join(workerResultFolder, combined)
-	fmt.Println("worker resultFileSrc: " + resultFileSrc)
+	//fmt.Println("worker resultFileSrc: " + resultFileSrc)
 	resultFileDest := filepath.Join(data, folder, combined)
-	fmt.Println("host resultFileDest: " + resultFileDest)
+	//fmt.Println("host resultFileDest: " + resultFileDest)
 	err = copyFileFromHost(resultFileSrc, resultFileDest, conn)
 	if err != nil {
 		fmt.Println("ssh run app: copy result back failed")
