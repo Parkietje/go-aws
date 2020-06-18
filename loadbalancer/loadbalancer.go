@@ -56,12 +56,22 @@ func Initialize(ec2 *ec2.EC2, cloudwatch *cloudwatch.CloudWatch, workerCount int
 
 func addWorker(AMI string, instanceType string) {
 	Inst := aws.CreateInstance(ec2Client, AMI, instanceType)
-	// Install the application on the instance over ssh
-	ssh.InitializeWorker(ec2Client, *Inst.InstanceId)
+
+	// Add the worker to the pool but set to inactive
 	workers = append(workers, worker{
 		instance: Inst,
-		active:   true,
+		active:   false,
 	})
+
+	// Install the application on the instance over ssh
+	ssh.InitializeWorker(ec2Client, *Inst.InstanceId)
+
+	// Make the worker active
+	for index, m := range workers {
+		if *m.instance.InstanceId == *Inst.InstanceId {
+			workers[index].active = true
+		}
+	}
 
 	// Log the new number of workers
 	workerCount := strconv.Itoa(len(workers)) // This has to be a string
@@ -124,6 +134,19 @@ func RunApplication(folder string, styleFile string, contentFile string) (err er
 
 	//round robin scheduling
 	machine := workers[roundRobinIndex]
+
+	// Only run on active workers
+	for machine.active == false {
+		// Increment the round robin index to cycle through the workers
+		roundRobinIndex++
+		if roundRobinIndex == len(workers) {
+			roundRobinIndex = 0
+		}
+
+		machine = workers[roundRobinIndex]
+	}
+
+	// Increment the index in round robin fashion
 	roundRobinIndex++
 	if roundRobinIndex == len(workers) {
 		roundRobinIndex = 0
