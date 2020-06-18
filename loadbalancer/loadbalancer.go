@@ -106,7 +106,7 @@ func waitForApplicationsToFinishAndTerminate(machine worker) {
 }
 
 /*RunApplication schedules a worker to process the contents of the given folder*/
-func RunApplication(folder string) {
+func RunApplication(folder string, styleFile string, contentFile string) (err error) {
 
 	//round robin scheduling
 	machine := workers[roundRobinIndex]
@@ -118,13 +118,8 @@ func RunApplication(folder string) {
 	fmt.Println("Scheduling request with folder id", folder, "on worker", *machine.instance.InstanceId)
 
 	// Run the application via ssh
-	err := ssh.RunApplication(ec2Client, *machine.instance.InstanceId, folder)
-	if err != nil {
-		fmt.Println("Failed: ", folder)
-		fmt.Println(err)
-	} else {
-		fmt.Println("Application finished with folder id", folder)
-	}
+	err = ssh.RunApplication(ec2Client, *machine.instance.InstanceId, folder, styleFile, contentFile)
+	return
 }
 
 /*TerminateAllWorkers shuts down all workers immediately*/

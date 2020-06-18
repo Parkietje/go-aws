@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -19,6 +20,9 @@ import (
 const (
 	defaultUser = "ubuntu"       // default username for ubuntu AMI TODO: make dynamic
 	keyPath     = "/keys/awskey" // location of ssh secret TODO: cmd arg
+	data        = "data"         // data upload folder
+	combined    = "combined.png" //result file
+	home        = "/home/ubuntu" //worker home folder
 )
 
 /*InitializeWorker connects to the given instance over ssh and installs the application and its dependencies*/
@@ -101,6 +105,7 @@ func authenticate(path string) ssh.AuthMethod {
 func runCommand(cmd string, conn *ssh.Client) (err error) {
 	sess, err := conn.NewSession()
 	if err != nil {
+		fmt.Println("runcmd: connection fails")
 		return
 	}
 	defer sess.Close()
@@ -119,6 +124,7 @@ func runCommand(cmd string, conn *ssh.Client) (err error) {
 
 	err = sess.Run(cmd) // eg., /usr/bin/whoami
 	if err != nil {
+		fmt.Println("runcmd: cmd fails")
 		return
 	}
 	return
@@ -133,17 +139,21 @@ func copyFileToHost(srcFilePath string, dstFilePath string, conn *ssh.Client) (e
 
 	dstFile, err := client.Create(dstFilePath)
 	if err != nil {
+		fmt.Println("copyto: dst not found: " + dstFilePath)
 		return
 	}
 	defer dstFile.Close()
 
 	srcFile, err := os.Open(srcFilePath)
 	if err != nil {
+		fmt.Println("copyto: src not found: " + srcFilePath)
 		return
 	}
+	defer srcFile.Close()
 
 	bytes, err := io.Copy(dstFile, srcFile)
 	if err != nil {
+		fmt.Println("copyto: copy NOK")
 		return
 	}
 	// fmt.Println(bytes, "bytes copied")
@@ -160,17 +170,20 @@ func copyFileFromHost(srcFilePath string, dstFilePath string, conn *ssh.Client) 
 
 	dstFile, err := os.Create(dstFilePath)
 	if err != nil {
+		fmt.Println("copyfrom: dst not found: " + dstFilePath)
 		return
 	}
 	defer dstFile.Close()
 
 	srcFile, err := client.Open(srcFilePath)
 	if err != nil {
+		fmt.Println("copyfrom: src not found: " + srcFilePath)
 		return
 	}
 
 	bytes, err := io.Copy(dstFile, srcFile)
 	if err != nil {
+		fmt.Println("copyfrom: copy NOK")
 		return
 	}
 	// fmt.Println(bytes, "bytes copied")
@@ -179,14 +192,15 @@ func copyFileFromHost(srcFilePath string, dstFilePath string, conn *ssh.Client) 
 	// flush in-memory copy
 	err = dstFile.Sync()
 	if err != nil {
+		fmt.Println("copyfrom: sync NOK")
 		return
 	}
 	return
 }
 
 /*RunApplication copies input files from folder to instance, processes input, and copies resulting files back.
-The instance needs to be already provisioned with the right dependencies and docker image*/
-func RunApplication(svc *ec2.EC2, instanceID string, folder string) (err error) {
+The instance needs to be already provisioned with the right dependencies and docker image.*/
+func RunApplication(svc *ec2.EC2, instanceID string, folder string, styleFile string, contentFile string) (err error) {
 	// Make the config for the ssh connection
 	config := &ssh.ClientConfig{
 		User: defaultUser,
@@ -202,37 +216,62 @@ func RunApplication(svc *ec2.EC2, instanceID string, folder string) (err error) 
 		return
 	}
 	defer conn.Close()
-
 	time.Sleep(10 * time.Second)
 
-	// Copy the input images to the worker
-	err = runCommand("mkdir -p "+folder+"/{input,results}", conn)
+	//make folders on worker
+	workerInputFolder := filepath.Join(home, folder, "input")
+	workerResultFolder := filepath.Join(home, folder, "results")
+	fmt.Println("worker inputFolder: " + workerInputFolder)
+	fmt.Println("worker resultsFolder: " + workerResultFolder)
+	err = runCommand("mkdir -p "+workerInputFolder, conn)
+	if err != nil {
+		fmt.Println("ssh run app: mkdir1 NOK")
+		return
+	}
+	err = runCommand("mkdir -p "+workerResultFolder, conn)
+	if err != nil {
+		fmt.Println("ssh run app: mkdir2 NOK")
+		return
+	}
+
+	//dynamic paths
+	styleSrc := filepath.Join(data, folder, styleFile)
+	fmt.Println("host styleSrc: " + "./" + styleSrc)
+	contentSrc := filepath.Join(data, folder, contentFile)
+	fmt.Println("host contentSrc: " + "./" + contentSrc)
+	styleDest := filepath.Join(workerInputFolder, styleFile)
+	fmt.Println("worker styleDest: " + styleDest)
+	contentDest := filepath.Join(workerInputFolder, contentFile)
+	fmt.Println("worker contentDest: " + contentDest)
+
+	//copy to worker
+	err = copyFileToHost("./"+styleSrc, styleDest, conn)
 	if err != nil {
 		return
 	}
-	err = copyFileToHost("./data/"+folder+"/style.jpg", "./"+folder+"/input/style.jpg", conn)
-	if err != nil {
-		return
-	}
-	err = copyFileToHost("./data/"+folder+"/content.jpg", "./"+folder+"/input/content.jpg", conn)
+	err = copyFileToHost("./"+contentSrc, contentDest, conn)
 	if err != nil {
 		return
 	}
 
 	// TODO: parametrize iterations and size
 	// Run the application on the docker image
-	err = runCommand("sudo docker run -v /home/ubuntu/"+folder+"/input:/input -v /home/ubuntu/"+folder+"/results:/results bobray/style-transfer:firsttry -i 1 -s 50", conn)
+	cmd := "sudo docker run -v " + workerInputFolder + ":/input -v " + workerResultFolder + ":/results bobray/style-transfer:firsttry -i 1 -s 50"
+	err = runCommand(cmd, conn)
 	if err != nil {
+		fmt.Println("ssh run app: following docker run cmd failed:")
+		fmt.Println(cmd)
 		return
 	}
 
 	// Copy the results back
-	err = copyFileFromHost("./"+folder+"/results/combined.png", "./data/"+folder+"/combined.png", conn)
+	resultFileSrc := filepath.Join(workerResultFolder, combined)
+	fmt.Println("worker resultFileSrc: " + resultFileSrc)
+	resultFileDest := filepath.Join(data, folder, combined)
+	fmt.Println("host resultFileDest: " + resultFileDest)
+	err = copyFileFromHost(resultFileSrc, resultFileDest, conn)
 	if err != nil {
-		return
-	}
-	err = copyFileFromHost("./"+folder+"/results/output.png", "./data/"+folder+"/output.png", conn)
-	if err != nil {
+		fmt.Println("ssh run app: copy result back failed")
 		return
 	}
 	return
