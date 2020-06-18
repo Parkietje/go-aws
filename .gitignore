@@ -12,3 +12,6 @@ data/*
 
 #secrets
 awskey*
+
+#log files
+*.csv

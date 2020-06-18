@@ -3,11 +3,13 @@ package loadbalancer
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	aws_helper "go-aws/m/v2/aws"
+	"go-aws/m/v2/logger"
 	"go-aws/m/v2/ssh"
 
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
@@ -54,6 +56,8 @@ func Initialize(svc *ec2.EC2, svc_cloudwatch *cloudwatch.CloudWatch, workerCount
 
 	// Wait for all workers to initialize
 	wg.Wait()
+
+	logger.Init()
 
 	go elasticScaling()
 	go MonitorHeartbeats()
@@ -109,8 +113,8 @@ func elasticScaling() {
 	// Parameters
 	scaleUpThres := 70.0
 	scaleDownThres := 30.0
-	maxWorkers := 5
-	minWorkers := 2
+	maxWorkers := 6
+	minWorkers := 5
 
 	cumulativeCpu := 0.0
 	aveCpu := 0.0
@@ -128,6 +132,9 @@ func elasticScaling() {
 				activeWorkerCount++
 			}
 		}
+
+		// Log the number of workers
+		logger.Log(strconv.Itoa(len(workers)), strconv.Itoa(activeWorkerCount))
 
 		aveCpu = cumulativeCpu / float64(activeWorkerCount)
 
@@ -194,7 +201,7 @@ func MonitorHeartbeats() {
 
 		go func() {
 			remoteIp := strings.Split(c.RemoteAddr().String(), ":")[0]
-			fmt.Print("Pinged by remote ", remoteIp)
+			// fmt.Print("Pinged by remote ", remoteIp)
 
 			var machine worker
 			var machineIndex int
@@ -205,10 +212,10 @@ func MonitorHeartbeats() {
 				}
 			}
 
-			fmt.Print(", found corresponding worker ", machine, "\n")
+			// fmt.Print(", found corresponding worker ", machine, "\n")
 
 			if machine.instance != nil {
-				fmt.Println("Received heartbeat from", *machine.instance.InstanceId)
+				// fmt.Println("Received heartbeat from", *machine.instance.InstanceId)
 				timestamp := time.Now().Unix()
 				// machine.heartbeat = timestamp
 				workers[machineIndex].heartbeat = timestamp
@@ -216,7 +223,7 @@ func MonitorHeartbeats() {
 				go func() {
 					time.Sleep(40 * time.Second)
 
-					fmt.Print("Checking if heartbeat of worker ", *machine.instance.InstanceId, " has updated...   ")
+					// fmt.Print("Checking if heartbeat of worker ", *machine.instance.InstanceId, " has updated...   ")
 
 					for _, m := range workers {
 						if m.ip == remoteIp {
@@ -235,7 +242,7 @@ func MonitorHeartbeats() {
 						}
 
 						// Reboot the machine
-						fmt.Print("rebooting failed worker ", *machine.instance.InstanceId, "\n")
+						fmt.Println("Rebooting failed worker ", *machine.instance.InstanceId)
 						// aws_helper.RebootInstance(loadbalancer_svc, *machine.instance.InstanceId) // Do this in production
 						aws_helper.StartInstance(loadbalancer_svc, *machine.instance.InstanceId)
 						inst := aws_helper.RetrieveInstance(loadbalancer_svc, *machine.instance.InstanceId)
@@ -254,13 +261,15 @@ func MonitorHeartbeats() {
 								workers[index].ip = strings.Replace(strings.Split(publicDns, ".")[0][4:], "-", ".", -1) // TODO: clean this up
 							}
 						}
+
+						fmt.Println("Worker", *machine.instance.InstanceId, "rebooted")
 					} else {
-						fmt.Print("updated correctly (", timestamp, " -> ", machine.heartbeat, ") \n")
+						// fmt.Print("updated correctly (", timestamp, " -> ", machine.heartbeat, ") \n")
 					}
 				}()
 
 			} else {
-				fmt.Println("Received heartbeat from unknown machine")
+				// fmt.Println("Received heartbeat from unknown machine")
 			}
 			c.Close()
 		}()
