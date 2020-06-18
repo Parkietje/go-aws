@@ -36,6 +36,9 @@ const (
 func Initialize(ec2 *ec2.EC2, cloudwatch *cloudwatch.CloudWatch, workerCount int) {
 	ec2Client = ec2
 	cloudwatchClient = cloudwatch
+	// Initialize the logger, this creates the csv file
+	logger.Init()
+
 	// Setup wait group for each worker
 	var wg sync.WaitGroup
 	for i := 0; i < workerCount; i++ {
@@ -47,9 +50,6 @@ func Initialize(ec2 *ec2.EC2, cloudwatch *cloudwatch.CloudWatch, workerCount int
 	}
 	// Wait for all workers to initialize
 	wg.Wait()
-
-	// Initialize the logger, this creates the csv file
-	logger.Init()
 
 	go elasticScaling()
 }
@@ -70,25 +70,28 @@ func addWorker(AMI string, instanceType string) {
 
 func elasticScaling() {
 	// Parameters
-	scaleUpThres := 50.0
-	scaleDownThres := 30.0
+	scaleUpThres := 30.0
+	scaleDownThres := 10.0
 	maxWorkers := 5
 	minWorkers := 1
 
 	sumCPU := 0.0
 	avgCPU := 0.0
 
+	failed := 0 //just to calculate a better avg
+
 	for {
 		sumCPU = 0
 		// Loop over all workers and collect cpu usage
 		for _, machine := range workers {
 			res, err := ssh.GetCPUUtilization(ec2Client, *machine.instance.InstanceId)
-			//TODO on error should we retry? or reboot?
-			if err == nil {
+			if err != nil {
+				failed++
+			} else {
 				sumCPU += res
 			}
 		}
-		avgCPU = sumCPU / float64(len(workers))
+		avgCPU = sumCPU / (float64(len(workers) - failed))
 		fmt.Println("Average worker CPU usage is", avgCPU, "with a total of", len(workers), "workers")
 
 		// Add another worker to the pool if CPU exceeds thresh and workers < max
