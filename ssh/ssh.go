@@ -18,12 +18,12 @@ import (
 )
 
 const (
-	defaultUser = "ubuntu"                         // default username for ubuntu AMI TODO: make dynamic
-	keyPath     = "/keys/awskey"                   // location of ssh secret TODO: cmd arg
-	data        = "data"                           // data upload folder
-	combined    = "combined.png"                   // result file
-	home        = "/home/ubuntu"                   // worker home folder
-	docker      = "bobray/style-transfer:firsttry" // docker image to pull
+	defaultUser = "ubuntu"                              // default username for ubuntu AMI TODO: make dynamic
+	keyPath     = "/keys/awskey"                        // location of ssh secret TODO: cmd arg
+	data        = "data"                                // data upload folder
+	combined    = "combined.png"                        // result file
+	home        = "/home/ubuntu"                        // worker home folder
+	docker      = "parkietje/style-transfer:production" // docker image to pull
 )
 
 /*InitializeWorker connects to the given instance over ssh and installs the application and its dependencies*/
@@ -74,7 +74,7 @@ func InitializeWorker(svc *ec2.EC2, instanceID string) (err error) {
 	if err != nil {
 		return
 	}
-	err = runCommand("sudo docker pull bobray/style-transfer:firsttry", conn)
+	err = runCommand("sudo docker pull "+docker, conn)
 	if err != nil {
 		return
 	}

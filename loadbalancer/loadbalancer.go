@@ -27,7 +27,7 @@ var (
 
 const (
 	defaultAMI          = "ami-068663a3c619dd892" // ubuntu AMI
-	defaultInstanceType = "t2.micro"              // free tier default instance type
+	defaultInstanceType = "c5.large"              // free tier default instance type
 )
 
 /*Initialize the loadbalancer with the specified amount of workers*/

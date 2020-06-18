@@ -115,7 +115,7 @@ func saveImage(w http.ResponseWriter, r *http.Request, name string, folder strin
 		return
 	}
 	detectedFileType = http.DetectContentType(fileBytes)
-	fmt.Println("detected filetype: " + detectedFileType)
+	//fmt.Println("detected filetype: " + detectedFileType)
 	// TODO: the reason we can only accept jpeg is because the docker image only processes jpeg
 	switch detectedFileType {
 	case "image/jpg", "image/jpeg":
