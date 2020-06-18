@@ -88,10 +88,9 @@ func StyleTransfer(w http.ResponseWriter, r *http.Request) {
 			//We read 512 bytes from the file already, so we reset the offset back to 0
 			Openfile.Seek(0, 0)
 			io.Copy(w, Openfile) //'Copy' the file to the client
-			//os.RemoveAll(folderPath)
+			os.RemoveAll(folderPath)
 			return
 		}
-
 	default:
 		fmt.Fprintf(w, "Please POST your images")
 	}
@@ -116,11 +115,10 @@ func saveImage(w http.ResponseWriter, r *http.Request, name string, folder strin
 		return
 	}
 	detectedFileType = http.DetectContentType(fileBytes)
-	// TODO: shomehow this case statement gives problems when copying jpeg images, only jpg works for now
+	fmt.Println("detected filetype: " + detectedFileType)
+	// TODO: the reason we can only accept jpeg is because the docker image only processes jpeg
 	switch detectedFileType {
 	case "image/jpg", "image/jpeg":
-	case "image/png":
-	case "application/pdf":
 		break
 	default:
 		renderError(w, "INVALID_FILE_TYPE")
