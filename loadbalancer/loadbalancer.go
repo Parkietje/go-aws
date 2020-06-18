@@ -84,6 +84,7 @@ func elasticScaling() {
 		sumCPU = 0
 		// Loop over all workers and collect cpu usage
 		for _, machine := range workers {
+			failed = 0
 			res, err := ssh.GetCPUUtilization(ec2Client, *machine.instance.InstanceId)
 			if err != nil {
 				failed++
